@@ -1,0 +1,25 @@
+.pin {
+  width: 10px;
+  height: 10px;
+
+  background: red;
+  border-radius: 50%;
+  border: 2px solid black;
+
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pin:hover {
+  background: white;
+  cursor: pointer;
+}
+
+.pin-input {
+  left: -5px;
+}
+
+.pin-output {
+  right: -5px;
+}

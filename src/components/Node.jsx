@@ -1,9 +1,30 @@
 import { useState } from 'react'
+import '../styles/node.css'
+import Pin from "./Pin";
 
-function Node({ id, type, x, y, updateNodePosition, workspaceRef }) {
+
+const gateConfig = {
+    SWITCH: { inputs: 0, outputs: 1 },
+    LED: { inputs: 1, outputs: 0 },
+    AND: { inputs: 2, outputs: 1 },
+    OR: { inputs: 2, outputs: 1 },
+    NOT: { inputs: 1, outputs: 1 }
+};
+
+const gateColors = {
+    SWITCH: "#2ecc71",
+    AND: "#3498db",
+    OR: "#9b59b6",
+    NOT: "#e67e22",
+    LED: "#e74c3c"
+};
+
+function Node({ id, type, x, y, updateNodePosition, workspaceRef, onPinClick}) {
 
     const [dragging, setDragging] = useState(false);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+    const config = gateConfig[type];
 
     const handleMouseDown = (e) => {
 
@@ -31,43 +52,39 @@ function Node({ id, type, x, y, updateNodePosition, workspaceRef }) {
     const handleMouseMove = (e) => {
         const rect = workspaceRef.current.getBoundingClientRect();
 
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        let mouseX = e.clientX - rect.left;
+        let mouseY = e.clientY - rect.top;
 
-        updateNodePosition(
-            id,
-            mouseX - offset.x,
-            mouseY - offset.y
-        );
+        const newX = mouseX - offset.x;
+        const newY = mouseY - offset.y;
+
+        updateNodePosition(id, newX, newY);
     };
 
     return (
         <div
+            className={`node node-${type.toLowerCase()}`}
             onMouseDown={handleMouseDown}
             style={{
-                position: "absolute",
                 left: x,
-                top: y,
+                top: y
+            }}
+        >
+            <div className="pin-column">
+                {Array.from({ length: config.inputs }).map((_, i) => (
+                    <Pin key={`in-${i}`} type="input" index={i} total={config.inputs} nodeId={id} onPinClick={onPinClick}/>
+                ))}
+            </div>
 
-                width: "80px",
-                height: "40px",
-
-                background: "#333",
-                color: "white",
-
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-
-                borderRadius: "4px",
-                border: "1px solid #555",
-
-                cursor: "grab",
-                userSelect: "none",
-            }}>
             {type}
+
+            <div className="pin-column">
+                {Array.from({ length: config.outputs }).map((_, i) => (
+                    <Pin key={`out-${i}`} type="output" index={i} total={config.outputs} nodeId={id} onPinClick={onPinClick} />
+                ))}
+            </div>
         </div>
-    )
+    );
 }
 
 export default Node;

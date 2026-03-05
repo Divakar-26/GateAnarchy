@@ -1,4 +1,4 @@
-function Sidebar(){
+function Sidebar({addNode}){
     const items = ["Switch", "LED", "AND", "OR", "NOT"];
 
     return(
@@ -13,6 +13,7 @@ function Sidebar(){
             
             {items.map((item) => (
             <div key={item} 
+                 onClick={() => addNode(item)}
                  style={{
                     padding: "10px",
                     marginBottom: "8px",

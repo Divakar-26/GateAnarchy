@@ -1,0 +1,50 @@
+.node {
+  position: absolute;
+  width: 80px;
+  height: 40px;
+
+  border: 1px solid #555;
+  border-radius: 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: white;
+
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+.node-label {
+  flex: 1;
+  text-align: center;
+}
+
+.pin-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.node-switch {
+  background: #2ecc71;
+}
+
+.node-and {
+  background: #3498db;
+}
+
+.node-or {
+  background: #9b59b6;
+}
+
+.node-not {
+  background: #e67e22;
+}
+
+.node-led {
+  background: #e74c3c;
+}
