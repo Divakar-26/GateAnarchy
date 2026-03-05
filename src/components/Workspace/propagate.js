@@ -1,3 +1,6 @@
+import { evaluateCustomComponent } from "../../utils/propagateCustom";
+import { customComponentRegistry } from "../../configs/customComponents";
+
 export function propagate(nodes, wires) {
 
   const nodeMap = new Map();
@@ -47,6 +50,26 @@ export function propagate(nodes, wires) {
       case "LED":
         node.value = filledInputs[0] ? 1 : 0;
         break;
+
+      default:
+        if (customComponentRegistry[node.type]) {
+
+          const comp = customComponentRegistry[node.type];
+
+          const inVals = inputs[node.id] || [];
+
+          const filled = Array.from(
+            { length: comp.inputPinMap.length },
+            (_, i) => inVals[i] ?? 0
+          );
+
+          const outputs = evaluateCustomComponent(node.type, filled);
+
+          node.outputs = outputs;
+          node.value = outputs[0] ?? 0;
+
+          return;
+        }
     }
 
   });

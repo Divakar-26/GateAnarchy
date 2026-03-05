@@ -6,11 +6,11 @@ import { getPinPosition } from "../../utils/pinPosition";
 import { propagate } from "./propagate";
 
 
-function Workspace({ nodes, setNodes }) {
+function Workspace({ nodes, setNodes, wires, setWires }) {
     const workspaceRef = useRef(null);
     const grid = 20;
 
-    const [wires, setWires] = useState([]);
+
     const [activeWire, setActiveWire] = useState(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -61,8 +61,11 @@ function Workspace({ nodes, setNodes }) {
         );
     };
 
+    
+
     const handlePinClick = (pin) => {
 
+        
         // start wire
         if (!activeWire) {
             if (pin.type === "output") {
