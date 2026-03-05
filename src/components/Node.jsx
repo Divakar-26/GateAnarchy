@@ -3,7 +3,7 @@ import '../styles/node.css'
 import Pin from "./Pin";
 import { gateColors, gateConfig } from '../configs/gates';
 
-function Node({ id, type, x, y, updateNodePosition, workspaceRef, onPinClick}) {
+function Node({ id, type, x, y, updateNodePosition, workspaceRef, onPinClick, camera }) {
 
     const [dragging, setDragging] = useState(false);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -14,8 +14,8 @@ function Node({ id, type, x, y, updateNodePosition, workspaceRef, onPinClick}) {
 
         const rect = workspaceRef.current.getBoundingClientRect();
 
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const mouseX = (e.clientX - rect.left - camera.x) / camera.zoom;
+        const mouseY = (e.clientY - rect.top - camera.y) / camera.zoom;
 
         setOffset({
             x: mouseX - x,
@@ -36,8 +36,8 @@ function Node({ id, type, x, y, updateNodePosition, workspaceRef, onPinClick}) {
     const handleMouseMove = (e) => {
         const rect = workspaceRef.current.getBoundingClientRect();
 
-        let mouseX = e.clientX - rect.left;
-        let mouseY = e.clientY - rect.top;
+        const mouseX = (e.clientX - rect.left - camera.x) / camera.zoom;
+        const mouseY = (e.clientY - rect.top - camera.y) / camera.zoom;
 
         const newX = mouseX - offset.x;
         const newY = mouseY - offset.y;
@@ -56,7 +56,7 @@ function Node({ id, type, x, y, updateNodePosition, workspaceRef, onPinClick}) {
         >
             <div className="pin-column">
                 {Array.from({ length: config.inputs }).map((_, i) => (
-                    <Pin key={`in-${i}`} type="input" index={i} total={config.inputs} nodeId={id} onPinClick={onPinClick}/>
+                    <Pin key={`in-${i}`} type="input" index={i} total={config.inputs} nodeId={id} onPinClick={onPinClick} />
                 ))}
             </div>
 
