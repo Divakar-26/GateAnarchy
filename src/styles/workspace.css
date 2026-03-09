@@ -13,7 +13,7 @@
 
   .grid-layer {
     position: absolute;
-    inset: -2000px;
+    inset: -2000px; 
     /* extend far beyond screen */
 
     background-color: #111;
