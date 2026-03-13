@@ -4,6 +4,7 @@ import Pin from "./Pin";
 import { gateColors, gateConfig, customColor } from '../configs/gates';
 import { customComponentRegistry } from "../configs/customComponents";
 import { getNodeSize } from "../utils/nodeSize";
+import { useSettings } from "../configs/SettingsContext";
 
 function Node({ id, type, x, y, value, label, updateNodePosition, workspaceRef, onPinClick, camera, selected, onSelect, onContextMenu, cancelWire, eraseMode }) {
     const dragStart = useRef({ x: 0, y: 0 });
@@ -63,10 +64,16 @@ function Node({ id, type, x, y, value, label, updateNodePosition, workspaceRef, 
     const isSwitch = type === "SWITCH";
     const active   = value === 1;
 
+    const { settings } = useSettings();
     const { width: nodeWidth, height: nodeHeight } = getNodeSize(type, config.inputs, config.outputs);
 
-    const bgColor = isIO
-        ? (active ? "#ff0000" : "#ffb3b3")
+    const bgColor = isSwitch
+        ? (active ? settings.switchOnColor  : settings.switchOffColor)
+        : type === "LED"
+        ? (active ? settings.ledOnColor     : settings.ledOffColor)
+        : type === "AND" ? settings.gateAndColor
+        : type === "OR"  ? settings.gateOrColor
+        : type === "NOT" ? settings.gateNotColor
         : (gateColors[type] || customColor(type));
 
     return (

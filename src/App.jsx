@@ -2,216 +2,459 @@ import { useState, useRef } from 'react'
 import Sidebar from './components/Sidebar/Sidebar.jsx'
 import Workspace from './components/Workspace/Workspace.jsx'
 import { loadSavedComponents, registerComponent, customComponentRegistry } from "./configs/customComponents";
+import { SettingsProvider } from "./configs/SettingsContext.js";
+import SettingsPanel from "./components/Workspace/SettingsPanel";
 
 loadSavedComponents();
 
-function App() {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+let _uid = 100;
+const uid = () => ++_uid;
 
-  const [nodes, setNodes] = useState([
-    { id: 1, type: "SWITCH", x: 120, y: 200, value: 1 },
-    { id: 3, type: "LED", x: 600, y: 200, value: 0 },
-  ]);
-  const [wires, setWires] = useState([]);
+const makePlayground = (name = "Playground 1") => ({
+  id: uid(),
+  name,
+  dirty: false,
+  nodes: [
+    { id: uid(), type: "SWITCH", x: 120, y: 200, value: 0, label: "" },
+    { id: uid(), type: "LED",    x: 500, y: 200, value: 0, label: "" },
+  ],
+  wires: [],
+});
+
+// ── Name Modal ────────────────────────────────────────────────────────────────
+function NameModal({ title, defaultValue = "", placeholder, onConfirm, onCancel, confirmLabel = "OK" }) {
+  const [val, setVal] = useState(defaultValue);
+  return (
+    <div style={S.overlay} onClick={onCancel}>
+      <div style={S.modal} onClick={e => e.stopPropagation()}>
+        <h2 style={{ margin: 0, fontSize: 15, color: "#cdd6f4" }}>{title}</h2>
+        <input
+          autoFocus value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && val.trim()) onConfirm(val.trim()); if (e.key === "Escape") onCancel(); }}
+          placeholder={placeholder}
+          style={S.input}
+        />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={S.btnCancel}>Cancel</button>
+          <button onClick={() => val.trim() && onConfirm(val.trim())} style={S.btnPrimary}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Confirm Modal ─────────────────────────────────────────────────────────────
+function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Yes", danger = false }) {
+  return (
+    <div style={S.overlay} onClick={onCancel}>
+      <div style={{ ...S.modal, maxWidth: 320 }} onClick={e => e.stopPropagation()}>
+        <p style={{ margin: 0, fontSize: 13, color: "#a6adc8", lineHeight: 1.6 }}>{message}</p>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={S.btnCancel}>Cancel</button>
+          <button onClick={onConfirm} style={danger ? S.btnDanger : S.btnPrimary}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab Bar ───────────────────────────────────────────────────────────────────
+function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleClose, onSettings }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "stretch",
+      background: "#13131f", borderBottom: "1px solid #252535",
+      height: 34, flexShrink: 0, overflowX: "auto", overflowY: "hidden",
+    }}>
+      {tabs.map(tab => {
+        const active = tab.id === activeId;
+        return (
+          <div
+            key={tab.id}
+            onClick={() => onSelect(tab.id)}
+            onDoubleClick={() => onRename(tab.id, tab.name)}
+            onMouseDown={e => { if (e.button === 1) { e.preventDefault(); onMiddleClose(tab.id); } }}
+            title="Double-click to rename · Middle-click to close"
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "0 10px 0 13px",
+              minWidth: 90, maxWidth: 170,
+              cursor: "pointer", flexShrink: 0,
+              background: active ? "#1e1e2e" : "transparent",
+              borderRight: "1px solid #1a1a28",
+              borderBottom: active ? "2px solid #89b4fa" : "2px solid transparent",
+              userSelect: "none",
+            }}
+          >
+            <span style={{
+              flex: 1, overflow: "hidden", textOverflow: "ellipsis",
+              whiteSpace: "nowrap", fontSize: 11,
+              color: active ? "#cdd6f4" : "#585b70",
+              fontWeight: active ? 600 : 400,
+            }}>
+              {tab.dirty ? <span style={{ color: "#f9e2af", marginRight: 2 }}>*</span> : null}
+              {tab.name}
+            </span>
+            {tabs.length > 1 && (
+              <span
+                onClick={e => { e.stopPropagation(); onClose(tab.id); }}
+                style={{ color: "#313244", fontSize: 13, lineHeight: 1, padding: "1px 1px", borderRadius: 3, flexShrink: 0 }}
+                onMouseEnter={e => e.currentTarget.style.color = "#f38ba8"}
+                onMouseLeave={e => e.currentTarget.style.color = "#313244"}
+              >✕</span>
+            )}
+          </div>
+        );
+      })}
+
+      {/* + new tab */}
+      <button onClick={onAdd} title="New playground"
+        style={{ background: "transparent", border: "none", color: "#313244", cursor: "pointer", fontSize: 18, padding: "0 10px", lineHeight: 1, flexShrink: 0 }}
+        onMouseEnter={e => e.currentTarget.style.color = "#89b4fa"}
+        onMouseLeave={e => e.currentTarget.style.color = "#313244"}
+      >+</button>
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* ⚙ Settings gear — right side of tab bar */}
+      <button onClick={onSettings} title="Settings"
+        style={{
+          background: "transparent", border: "none",
+          color: "#45475a", cursor: "pointer",
+          fontSize: 15, padding: "0 12px",
+          lineHeight: 1, flexShrink: 0,
+          transition: "color 0.12s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = "#89b4fa"}
+        onMouseLeave={e => e.currentTarget.style.color = "#45475a"}
+      >⚙</button>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [tabs, setTabs]         = useState([makePlayground("Playground 1")]);
+  const [activeId, setActiveId] = useState(() => tabs[0].id);
+  const [showSettings, setShowSettings] = useState(false);
 
   const [savedNames, setSavedNames] = useState(Object.keys(customComponentRegistry));
 
+  // Save component modal
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saveName, setSaveName] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const inputRef = useRef(null);
+  const [saveName, setSaveName]           = useState("");
+  const [saveError, setSaveError]         = useState("");
+  const saveInputRef = useRef(null);
 
+  // Sidebar component menu
   const [componentMenu, setComponentMenu] = useState(null);
-  // { name, x, y, mode: "menu" | "rename" }
   const renameRef = useRef(null);
 
+  // Generic prompts
+  const [namePrompt, setNamePrompt]       = useState(null);
+  const [confirmPrompt, setConfirmPrompt] = useState(null);
+
+  const fileInputRef = useRef(null);
+
+  // ── Active tab data ─────────────────────────────────────────────────────────
+  const activeTab = tabs.find(t => t.id === activeId) ?? tabs[0];
+  const nodes     = activeTab.nodes;
+  const wires     = activeTab.wires;
+
+  const patchTab = (id, patch) => setTabs(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
+
+  const setNodes = (updater) => setTabs(prev => prev.map(t =>
+    t.id === activeId ? { ...t, dirty: true, nodes: typeof updater === "function" ? updater(t.nodes) : updater } : t
+  ));
+  const setWires = (updater) => setTabs(prev => prev.map(t =>
+    t.id === activeId ? { ...t, dirty: true, wires: typeof updater === "function" ? updater(t.wires) : updater } : t
+  ));
+
+  // ── Tab management ──────────────────────────────────────────────────────────
+  const addTab = () => {
+    const tab = makePlayground(`Playground ${tabs.length + 1}`);
+    setTabs(prev => [...prev, tab]);
+    setActiveId(tab.id);
+  };
+
+  const doCloseTab = (id) => {
+    setTabs(prev => {
+      const next = prev.filter(t => t.id !== id);
+      if (activeId === id) setActiveId(next[next.length - 1]?.id);
+      return next;
+    });
+  };
+
+  const closeTab = (id) => {
+    const tab = tabs.find(t => t.id === id);
+    if (tab?.dirty) {
+      setConfirmPrompt({
+        message: `"${tab.name}" has unsaved changes. Close anyway?`,
+        confirmLabel: "Close",
+        danger: true,
+        onConfirm: () => { doCloseTab(id); setConfirmPrompt(null); },
+      });
+    } else {
+      doCloseTab(id);
+    }
+  };
+
+  const renameTab = (id, current) => {
+    setNamePrompt({
+      title: "Rename playground",
+      defaultValue: current,
+      placeholder: "e.g. 4-bit Adder",
+      onConfirm: (val) => { patchTab(id, { name: val }); setNamePrompt(null); },
+    });
+  };
+
+  // ── Export / Import ─────────────────────────────────────────────────────────
+  const savePlayground = () => {
+    setNamePrompt({
+      title: "Export playground",
+      defaultValue: activeTab.name,
+      placeholder: "filename",
+      confirmLabel: "Export",
+      onConfirm: (val) => {
+        const fname   = val.endsWith(".json") ? val : `${val}.json`;
+        const payload = JSON.stringify({ name: val, nodes, wires }, null, 2);
+        const url     = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+        Object.assign(document.createElement("a"), { href: url, download: fname }).click();
+        URL.revokeObjectURL(url);
+        // Mark clean after export
+        patchTab(activeId, { dirty: false });
+        setNamePrompt(null);
+      },
+    });
+  };
+
+  const loadPlayground = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (Array.isArray(data.nodes) && Array.isArray(data.wires)) {
+          const tab = makePlayground(data.name || file.name.replace(".json", ""));
+          tab.nodes = data.nodes;
+          tab.wires = data.wires;
+          tab.dirty = false;
+          setTabs(prev => [...prev, tab]);
+          setActiveId(tab.id);
+        }
+      } catch { alert("Invalid playground file."); }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  // ── Save component ──────────────────────────────────────────────────────────
   const saveCircuit = () => {
     const switches = nodes.filter(n => n.type === "SWITCH");
-    const leds = nodes.filter(n => n.type === "LED");
+    const leds     = nodes.filter(n => n.type === "LED");
     if (!switches.length || !leds.length) {
-      setSaveError("Need at least one SWITCH and one LED in the circuit.");
-      setShowSaveModal(true);
-      return;
+      setSaveError("Need at least one SWITCH and one LED.");
+      setShowSaveModal(true); return;
     }
-    setSaveError("");
-    setSaveName("");
+    setSaveError(""); setSaveName("");
     setShowSaveModal(true);
-    setTimeout(() => inputRef.current?.focus(), 50);
+    setTimeout(() => saveInputRef.current?.focus(), 50);
   };
 
   const confirmSave = () => {
     if (!saveName.trim()) { setSaveError("Enter a name."); return; }
-    const trimmed = saveName.trim().toUpperCase().replace(/\s+/g, "_");
+    const trimmed  = saveName.trim().toUpperCase().replace(/\s+/g, "_");
     const switches = nodes.filter(n => n.type === "SWITCH");
-    const leds = nodes.filter(n => n.type === "LED");
-    registerComponent(
-      trimmed,
-      JSON.parse(JSON.stringify(nodes)),
-      JSON.parse(JSON.stringify(wires)),
+    const leds     = nodes.filter(n => n.type === "LED");
+    registerComponent(trimmed,
+      JSON.parse(JSON.stringify(nodes)), JSON.parse(JSON.stringify(wires)),
       switches.map(n => ({ nodeId: n.id, pinIndex: 0 })),
-      leds.map(n => ({ nodeId: n.id, pinIndex: 0 }))
+      leds.map(n =>     ({ nodeId: n.id, pinIndex: 0 }))
     );
     setSavedNames(Object.keys(customComponentRegistry));
-    setShowSaveModal(false);
-    setSaveName("");
+    setShowSaveModal(false); setSaveName("");
   };
 
-  const addNode = (type) => {
-    setNodes(prev => [...prev, { id: Date.now(), type, x: 200, y: 200, value: 0 }]);
-  };
+  const addNode = (type) =>
+    setNodes(prev => [...prev, { id: uid(), type, x: 200, y: 200, value: 0, label: "" }]);
 
-  // Open context menu for a saved component
-  const openComponentMenu = (name, x, y) => {
+  // ── Sidebar component menu ──────────────────────────────────────────────────
+  const openComponentMenu = (name, x, y) =>
     setComponentMenu({ name, x, y, mode: "menu", renameValue: name });
-  };
 
-  const handleRename = () => {
+  const handleRenameComp = () => {
     setComponentMenu(prev => ({ ...prev, mode: "rename" }));
     setTimeout(() => renameRef.current?.focus(), 50);
   };
-
-  const confirmRename = () => {
+  const confirmRenameComp = () => {
     const oldName = componentMenu.name;
     const newName = componentMenu.renameValue.trim().toUpperCase().replace(/\s+/g, "_");
     if (!newName || newName === oldName) { setComponentMenu(null); return; }
-
     const comp = customComponentRegistry[oldName];
     if (comp) {
       delete customComponentRegistry[oldName];
       customComponentRegistry[newName] = { ...comp, name: newName };
       localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
-
-      setNodes(prev => prev.map(n => n.type === oldName ? { ...n, type: newName } : n));
+      setTabs(prev => prev.map(t => ({
+        ...t, nodes: t.nodes.map(n => n.type === oldName ? { ...n, type: newName } : n)
+      })));
       setSavedNames(Object.keys(customComponentRegistry));
     }
     setComponentMenu(null);
   };
-
-  const handleDelete = () => {
+  const handleDeleteComp = () => {
     const name = componentMenu.name;
     delete customComponentRegistry[name];
     localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
-
-    const deletedNodeIds = new Set(nodes.filter(n => n.type === name).map(n => n.id));
-    setNodes(prev => prev.filter(n => n.type !== name));
-    setWires(prev => prev.filter(w => !deletedNodeIds.has(w.from.nodeId) && !deletedNodeIds.has(w.to.nodeId)));
+    setTabs(prev => prev.map(t => {
+      const ids = new Set(t.nodes.filter(n => n.type === name).map(n => n.id));
+      return { ...t, nodes: t.nodes.filter(n => n.type !== name), wires: t.wires.filter(w => !ids.has(w.from.nodeId) && !ids.has(w.to.nodeId)) };
+    }));
     setSavedNames(Object.keys(customComponentRegistry));
     setComponentMenu(null);
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", height: "100vh" }} onClick={() => setComponentMenu(null)}>
-      <Sidebar
-        addNode={addNode}
-        onSaveCircuit={saveCircuit}
-        savedNames={savedNames}
-        onRenameComponent={openComponentMenu}
-      />
-      <Workspace nodes={nodes} setNodes={setNodes} wires={wires} setWires={setWires} />
+    <SettingsProvider>
+      <div style={{ display: "flex", height: "100vh" }} onClick={() => setComponentMenu(null)}>
+        <Sidebar
+          addNode={addNode}
+          onSaveCircuit={saveCircuit}
+          savedNames={savedNames}
+          onRenameComponent={openComponentMenu}
+        />
 
-      {}
-      {showSaveModal && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <h2 style={{ margin: 0, fontSize: "18px" }}>Save Component</h2>
-            {saveError
-              ? <p style={{ margin: 0, color: "#f38ba8", fontSize: "13px" }}>{saveError}</p>
-              : <p style={{ margin: 0, color: "#a6adc8", fontSize: "13px" }}>
-                  {nodes.filter(n => n.type === "SWITCH").length} input(s) · {nodes.filter(n => n.type === "LED").length} output(s)
-                </p>
-            }
-            {!saveError.includes("SWITCH") && (
-              <input
-                ref={inputRef}
-                value={saveName}
-                onChange={e => setSaveName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && confirmSave()}
-                placeholder="e.g. HALF_ADDER"
-                style={styles.input}
-              />
-            )}
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowSaveModal(false)} style={styles.btnCancel}>Cancel</button>
-              {!saveError.includes("SWITCH") && (
-                <button onClick={confirmSave} style={styles.btnPrimary}>Save</button>
-              )}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <TabBar
+            tabs={tabs} activeId={activeId}
+            onSelect={setActiveId}
+            onAdd={addTab}
+            onRename={renameTab}
+            onClose={closeTab}
+            onMiddleClose={closeTab}
+            onSettings={() => setShowSettings(true)}
+          />
+
+          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+            <Workspace
+              key={activeId}
+              nodes={nodes} setNodes={setNodes}
+              wires={wires} setWires={setWires}
+            />
+            {/* Export / Import */}
+            <div style={{ position: "absolute", bottom: 20, left: 20, zIndex: 200, display: "flex", gap: 6 }}>
+              <input ref={fileInputRef} type="file" accept=".json" style={{ display: "none" }} onChange={loadPlayground} />
+              <PlayBtn onClick={savePlayground}>↓ Export</PlayBtn>
+              <PlayBtn onClick={() => fileInputRef.current?.click()}>↑ Import</PlayBtn>
             </div>
           </div>
         </div>
-      )}
 
-      {}
-      {componentMenu && (
-        <div
-          style={{ ...styles.contextMenu, left: componentMenu.x, top: componentMenu.y }}
-          onClick={e => e.stopPropagation()}
-        >
-          {componentMenu.mode === "menu" ? (
-            <>
-              <div style={styles.menuHeader}>📦 {componentMenu.name}</div>
-              <div style={styles.menuItem} onClick={handleRename}>✏️ Rename</div>
-              <div style={{ ...styles.menuItem, color: "#f38ba8" }} onClick={handleDelete}>🗑️ Delete</div>
-            </>
-          ) : (
-            <>
-              <div style={styles.menuHeader}>Rename Component</div>
-              <input
-                ref={renameRef}
-                value={componentMenu.renameValue}
-                onChange={e => setComponentMenu(prev => ({ ...prev, renameValue: e.target.value }))}
-                onKeyDown={e => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setComponentMenu(null); }}
-                style={{ ...styles.input, marginBottom: 0 }}
-              />
-              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                <button onClick={() => setComponentMenu(null)} style={{ ...styles.btnCancel, flex: 1 }}>Cancel</button>
-                <button onClick={confirmRename} style={{ ...styles.btnPrimary, flex: 1 }}>Rename</button>
+        {/* ── Settings panel ── */}
+        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+
+        {/* ── Name prompt ── */}
+        {namePrompt && (
+          <NameModal
+            title={namePrompt.title}
+            defaultValue={namePrompt.defaultValue}
+            placeholder={namePrompt.placeholder}
+            confirmLabel={namePrompt.confirmLabel}
+            onConfirm={namePrompt.onConfirm}
+            onCancel={() => setNamePrompt(null)}
+          />
+        )}
+
+        {/* ── Confirm prompt ── */}
+        {confirmPrompt && (
+          <ConfirmModal
+            message={confirmPrompt.message}
+            confirmLabel={confirmPrompt.confirmLabel}
+            danger={confirmPrompt.danger}
+            onConfirm={confirmPrompt.onConfirm}
+            onCancel={() => setConfirmPrompt(null)}
+          />
+        )}
+
+        {/* ── Save component modal ── */}
+        {showSaveModal && (
+          <div style={S.overlay}>
+            <div style={S.modal} onClick={e => e.stopPropagation()}>
+              <h2 style={{ margin: 0, fontSize: 15 }}>Save Component</h2>
+              {saveError
+                ? <p style={{ margin: 0, color: "#f38ba8", fontSize: 13 }}>{saveError}</p>
+                : <p style={{ margin: 0, color: "#a6adc8", fontSize: 13 }}>
+                    {nodes.filter(n => n.type === "SWITCH").length} input(s) · {nodes.filter(n => n.type === "LED").length} output(s)
+                  </p>}
+              {!saveError.includes("SWITCH") && (
+                <input ref={saveInputRef} value={saveName}
+                  onChange={e => setSaveName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && confirmSave()}
+                  placeholder="e.g. HALF_ADDER" style={S.input} />
+              )}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button onClick={() => setShowSaveModal(false)} style={S.btnCancel}>Cancel</button>
+                {!saveError.includes("SWITCH") && <button onClick={confirmSave} style={S.btnPrimary}>Save</button>}
               </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Sidebar component context menu ── */}
+        {componentMenu && (
+          <div style={{ ...S.contextMenu, left: componentMenu.x, top: componentMenu.y }} onClick={e => e.stopPropagation()}>
+            {componentMenu.mode === "menu" ? (<>
+              <div style={S.menuHeader}>📦 {componentMenu.name}</div>
+              <div style={S.menuItem} onClick={handleRenameComp}>✏️ Rename</div>
+              <div style={{ ...S.menuItem, color: "#f38ba8" }} onClick={handleDeleteComp}>🗑️ Delete</div>
+            </>) : (<>
+              <div style={S.menuHeader}>Rename</div>
+              <input ref={renameRef} value={componentMenu.renameValue}
+                onChange={e => setComponentMenu(p => ({ ...p, renameValue: e.target.value }))}
+                onKeyDown={e => { if (e.key === "Enter") confirmRenameComp(); if (e.key === "Escape") setComponentMenu(null); }}
+                style={{ ...S.input, marginBottom: 0 }} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button onClick={() => setComponentMenu(null)} style={{ ...S.btnCancel, flex: 1 }}>Cancel</button>
+                <button onClick={confirmRenameComp} style={{ ...S.btnPrimary, flex: 1 }}>OK</button>
+              </div>
+            </>)}
+          </div>
+        )}
+      </div>
+    </SettingsProvider>
   );
 }
 
-const styles = {
-  overlay: {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-  },
-  modal: {
-    background: "#1e1e2e", color: "#cdd6f4", borderRadius: "10px",
-    padding: "28px 32px", minWidth: "300px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-    display: "flex", flexDirection: "column", gap: "12px"
-  },
-  contextMenu: {
-    position: "fixed", background: "#1e1e2e", border: "1px solid #45475a",
-    borderRadius: "8px", padding: "6px", minWidth: "180px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.5)", zIndex: 2000,
-    display: "flex", flexDirection: "column", gap: "2px"
-  },
-  menuHeader: {
-    padding: "6px 10px", fontSize: "11px", color: "#6c7086",
-    borderBottom: "1px solid #313244", marginBottom: "4px", fontWeight: "bold"
-  },
-  menuItem: {
-    padding: "8px 12px", borderRadius: "5px", cursor: "pointer",
-    fontSize: "13px", color: "#cdd6f4",
-    transition: "background 0.1s",
-    userSelect: "none"
-  },
-  input: {
-    padding: "8px 12px", borderRadius: "6px", fontSize: "14px",
-    border: "1px solid #45475a", background: "#313244", color: "#cdd6f4",
-    outline: "none", width: "100%", boxSizing: "border-box"
-  },
-  btnCancel: {
-    padding: "7px 16px", borderRadius: "6px", border: "1px solid #45475a",
-    background: "transparent", color: "#cdd6f4", cursor: "pointer"
-  },
-  btnPrimary: {
-    padding: "7px 16px", borderRadius: "6px", border: "none",
-    background: "#89b4fa", color: "#1e1e2e", fontWeight: "bold", cursor: "pointer"
-  }
+function PlayBtn({ onClick, children }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        background: hov ? "#25253a" : "#1a1a2a", border: "1px solid #2a2a3e",
+        borderRadius: 6, color: hov ? "#cdd6f4" : "#6c7086",
+        cursor: "pointer", fontSize: 11, fontWeight: 600,
+        padding: "5px 10px", letterSpacing: "0.04em", transition: "all 0.12s",
+      }}
+    >{children}</button>
+  );
+}
+
+const S = {
+  overlay:     { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000 },
+  modal:       { background: "#1e1e2e", color: "#cdd6f4", borderRadius: 10, padding: "24px 28px", minWidth: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", gap: 12 },
+  contextMenu: { position: "fixed", background: "#1e1e2e", border: "1px solid #45475a", borderRadius: 8, padding: 6, minWidth: 180, boxShadow: "0 4px 20px rgba(0,0,0,0.5)", zIndex: 4000, display: "flex", flexDirection: "column", gap: 2 },
+  menuHeader:  { padding: "6px 10px", fontSize: 11, color: "#6c7086", borderBottom: "1px solid #313244", marginBottom: 4, fontWeight: "bold" },
+  menuItem:    { padding: "8px 12px", borderRadius: 5, cursor: "pointer", fontSize: 13, color: "#cdd6f4", userSelect: "none" },
+  input:       { padding: "8px 12px", borderRadius: 6, fontSize: 13, border: "1px solid #45475a", background: "#313244", color: "#cdd6f4", outline: "none", width: "100%", boxSizing: "border-box" },
+  btnCancel:   { padding: "7px 16px", borderRadius: 6, border: "1px solid #45475a", background: "transparent", color: "#cdd6f4", cursor: "pointer", fontSize: 13 },
+  btnPrimary:  { padding: "7px 16px", borderRadius: 6, border: "none", background: "#89b4fa", color: "#1e1e2e", fontWeight: "bold", cursor: "pointer", fontSize: 13 },
+  btnDanger:   { padding: "7px 16px", borderRadius: 6, border: "none", background: "#f38ba8", color: "#1e1e2e", fontWeight: "bold", cursor: "pointer", fontSize: 13 },
 };
 
-export default App; 
+export default App;

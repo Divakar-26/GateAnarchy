@@ -5,6 +5,7 @@ import Wire from "../Wire";
 import { getPinPosition } from "../../utils/pinPosition";
 import { propagate } from "./propagate";
 import TruthTablePanel from "./TruthTablePanel";
+import { useSettings } from "../../configs/SettingsContext";
 
 // ── Toolbar button ────────────────────────────────────────────────────────────
 function ToolBtn({ active, onClick, title, children }) {
@@ -49,6 +50,8 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
     const [truthTableType, setTruthTableType] = useState(null);
     const labelInputRef = useRef(null);
 
+    const { settings } = useSettings();
+
     // ── propagation ──────────────────────────────────────────────────────────
     useEffect(() => {
         const newNodes = propagate(nodes, wires);
@@ -82,8 +85,9 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
 
     // ── node position / toggle ───────────────────────────────────────────────
     const updateNodePosition = (id, x, y, action = null, isGroupDrag = false) => {
-        const snappedX = Math.round(x / grid) * grid;
-        const snappedY = Math.round(y / grid) * grid;
+        const snap = settings.snapToGrid ? grid : 1;
+        const snappedX = Math.round(x / snap) * snap;
+        const snappedY = Math.round(y / snap) * snap;
         setNodes(prev => {
             const target = prev.find(n => n.id === id);
             if (!target) return prev;
@@ -199,9 +203,10 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
 
     // ── render ───────────────────────────────────────────────────────────────
     return (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", height: "100%" }}>
 
             {/* ── Toolbar ── */}
+            {settings.showToolbar && (
             <div style={{
                 position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)",
                 display: "flex", alignItems: "center", gap: 4,
@@ -233,6 +238,7 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
                     ⛶
                 </ToolBtn>
             </div>
+            )}
 
             {/* ── Focus / Home button — bottom-right, distinct ── */}
             <button
@@ -267,7 +273,7 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
             <div
                 className="workspace"
                 ref={workspaceRef}
-                style={{ cursor: activeCursor }}
+                style={{ cursor: activeCursor, background: settings.bgColor }}
                 onMouseMove={(e) => {
                     const rect = workspaceRef.current.getBoundingClientRect();
                     const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
@@ -294,7 +300,7 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
                     setActiveWire(null);
                     const rect = workspaceRef.current.getBoundingClientRect();
                     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-                    const zf = e.deltaY > 0 ? 0.9 : 1.1;
+                    const zf = e.deltaY > 0 ? (1 - 0.1 * settings.zoomSensitivity) : (1 + 0.1 * settings.zoomSensitivity);
                     const newZoom = Math.min(Math.max(camera.zoom * zf, 0.25), 3);
                     const wm = screenToWorld(mx, my);
                     setCamera({ x: mx - wm.x * newZoom, y: my - wm.y * newZoom, zoom: newZoom });
@@ -308,7 +314,13 @@ function Workspace({ nodes, setNodes, wires, setWires }) {
                         pointerEvents: "none",
                     }}
                 >
-                    <div className="grid-layer" style={{ pointerEvents: "none" }} />
+                <div className="grid-layer" style={{
+                    pointerEvents: "none",
+                    backgroundColor: settings.bgColor,
+                    backgroundImage: settings.showGrid
+                        ? `linear-gradient(${settings.gridColor} 1px, transparent 1px), linear-gradient(90deg, ${settings.gridColor} 1px, transparent 1px)`
+                        : "none",
+                }} />
 
                     <svg className="wire-layer" style={{ pointerEvents: "none" }}>
                         {wires.map(wire => {
