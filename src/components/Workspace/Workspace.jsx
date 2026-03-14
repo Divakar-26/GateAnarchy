@@ -65,6 +65,66 @@ function GhostNode({ type, x, y, width, height }) {
     );
 }
 
+// ── Region name prompt ────────────────────────────────────────────────────────
+function RegionPrompt({ x, y, onConfirm, onClose }) {
+    const [val, setVal] = useState("");
+    const inputRef = useRef(null);
+    useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
+
+    // Clamp so it doesn't overflow viewport bottom
+    const top = Math.min(y, window.innerHeight - 130);
+
+    return (
+        <div
+            style={{
+                position: "fixed", left: x, top,
+                zIndex: 3000,
+                background: "#1e1e2e", border: "1px solid #45475a",
+                borderRadius: 9, padding: "12px 14px",
+                width: 210,
+                boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+                display: "flex", flexDirection: "column", gap: 10,
+                userSelect: "none",
+            }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+        >
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#cdd6f4", letterSpacing: "0.05em" }}>
+                Name region
+            </div>
+            <input
+                ref={inputRef}
+                value={val}
+                onChange={e => setVal(e.target.value)}
+                onKeyDown={e => {
+                    if (e.key === "Enter") onConfirm(val);
+                    if (e.key === "Escape") onClose();
+                }}
+                placeholder="e.g. ALU, Decoder…"
+                style={{
+                    padding: "6px 9px", borderRadius: 6, fontSize: 12,
+                    border: "1px solid #45475a", background: "#181825",
+                    color: "#cdd6f4", outline: "none", width: "100%", boxSizing: "border-box",
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = "#89b4fa"}
+                onBlur={e  => e.currentTarget.style.borderColor = "#45475a"}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={onClose} style={{
+                    flex: 1, padding: "6px 0", borderRadius: 6,
+                    border: "1px solid #45475a", background: "transparent",
+                    color: "#cdd6f4", cursor: "pointer", fontSize: 12,
+                }}>Cancel</button>
+                <button onClick={() => onConfirm(val)} style={{
+                    flex: 1, padding: "6px 0", borderRadius: 6,
+                    border: "none", background: "#89b4fa",
+                    color: "#1e1e2e", fontWeight: 700, cursor: "pointer", fontSize: 12,
+                }}>Add</button>
+            </div>
+        </div>
+    );
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Junction dot is 10×10; all wires should meet at its center regardless of
@@ -131,7 +191,7 @@ let _wid = 9000;
 const wid = () => ++_wid;
 
 // ── Workspace ─────────────────────────────────────────────────────────────────
-function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePending, onCancelPending }) {
+function Workspace({ nodes, setNodes, wires, setWires, regions, setRegions, pendingTypes, onPlacePending, onCancelPending }) {
     const workspaceRef  = useRef(null);
     const grid = 20;
 
@@ -149,14 +209,50 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
     const [clockConfig, setClockConfig]   = useState(null);
     const [ghostWorldPos, setGhostWorldPos] = useState(null);
 
+    // ── Clipboard (copy/paste) ────────────────────────────────────────────────
+    const clipboard = useRef(null); // { nodes: [], wires: [], regions: [] }
+
+    // ── Signal fingerprint — skip propagation when only positions changed ─────
+    const prevSigRef = useRef('');
+
+    const [regionPrompt, setRegionPrompt] = useState(null); // { nodeIds, x, y }
+
     const labelInputRef = useRef(null);
     const { settings }  = useSettings();
 
     // ── propagation ──────────────────────────────────────────────────────────
+    // Only re-propagate when signal-relevant state changes (values/outputs/wires).
+    // Position drags do NOT change the signal fingerprint → skip for free.
     useEffect(() => {
+        const nodeSig = nodes.map(n => `${n.id}:${n.value}:${(n.outputs||[]).join(',')}`).join('|');
+        const wireSig = wires.map(w => `${w.from.nodeId}[${w.from.index}]->${w.to.nodeId}[${w.to.index}]`).join('|');
+        const sig = nodeSig + '~' + wireSig;
+        if (sig === prevSigRef.current) return;   // nothing signal-relevant changed
+
         const newNodes = propagate(nodes, wires);
-        const changed = newNodes.some((n, i) => n.value !== nodes[i]?.value);
-        if (changed) setNodes(newNodes);
+
+        // Only call setNodes for nodes where value or outputs actually changed
+        let anyChanged = false;
+        const merged = nodes.map(orig => {
+            const n = newNodes.find(x => x.id === orig.id);
+            if (!n) return orig;
+            const vEq = n.value === orig.value;
+            const oEq = n.outputs === orig.outputs ||
+                ((!n.outputs && !orig.outputs) ||
+                 (n.outputs && orig.outputs &&
+                  n.outputs.length === orig.outputs.length &&
+                  n.outputs.every((v, i) => v === orig.outputs[i])));
+            if (vEq && oEq) return orig;
+            anyChanged = true;
+            return n;
+        });
+
+        if (anyChanged) {
+            prevSigRef.current = '';   // force recheck after update
+            setNodes(merged);
+        } else {
+            prevSigRef.current = sig;  // stable — cache so position drags skip
+        }
     }, [nodes, wires]);
 
     // ── clock management ─────────────────────────────────────────────────────
@@ -288,6 +384,95 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
         setClockConfig(null);
     };
 
+    // ── Multi-bit input toggle ─────────────────────────────────────────────────
+    const handleBitToggle = (nodeId, bitIndex) => {
+        setNodes(prev => prev.map(n => {
+            if (n.id !== nodeId) return n;
+            const bitCount  = parseInt(n.type.split("_")[1]) || 1;
+            const newOutputs = [...(n.outputs || Array(bitCount).fill(0))];
+            newOutputs[bitIndex] = newOutputs[bitIndex] ? 0 : 1;
+            return { ...n, outputs: newOutputs };
+        }));
+    };
+
+    // ── Copy / Paste ──────────────────────────────────────────────────────────
+    const handleCopy = () => {
+        if (!selectedNodes.length) return;
+        const copiedNodes = nodes.filter(n => selectedNodes.includes(n.id));
+        const copiedIds   = new Set(selectedNodes);
+        const copiedWires = wires.filter(
+            w => copiedIds.has(w.from.nodeId) && copiedIds.has(w.to.nodeId)
+        );
+        // Copy regions whose every nodeId is within the selection
+        const copiedRegions = (regions || []).filter(
+            r => r.nodeIds.length > 0 && r.nodeIds.every(id => copiedIds.has(id))
+        );
+        clipboard.current = { nodes: copiedNodes, wires: copiedWires, regions: copiedRegions };
+    };
+
+    const handlePaste = () => {
+        if (!clipboard.current?.nodes?.length) return;
+        const OFFSET = 40;
+        const idMap  = new Map(); // old id → new id
+        const newNodes = clipboard.current.nodes.map(n => {
+            const newId = wid();
+            idMap.set(n.id, newId);
+            return { ...n, id: newId, x: n.x + OFFSET, y: n.y + OFFSET };
+        });
+        const newWires = clipboard.current.wires.map(w => ({
+            ...w,
+            id: wid(),
+            from: { ...w.from, nodeId: idMap.get(w.from.nodeId) ?? w.from.nodeId },
+            to:   { ...w.to,   nodeId: idMap.get(w.to.nodeId)   ?? w.to.nodeId   },
+        }));
+        // Remap region nodeIds via idMap
+        const newRegions = (clipboard.current.regions || []).map(r => ({
+            ...r,
+            id:      wid(),
+            nodeIds: r.nodeIds.map(id => idMap.get(id) ?? id),
+        }));
+        setNodes(prev => [...prev, ...newNodes]);
+        setWires(prev => [...prev, ...newWires]);
+        if (newRegions.length) setRegions(prev => [...prev, ...newRegions]);
+        setSelectedNodes(newNodes.map(n => n.id));
+    };
+
+    // ── Region confirm ────────────────────────────────────────────────────────
+    const confirmRegion = (label) => {
+        if (!regionPrompt || !label.trim()) { setRegionPrompt(null); return; }
+        setRegions(prev => [...prev, {
+            id:      wid(),
+            label:   label.trim(),
+            nodeIds: regionPrompt.nodeIds,   // live — bounds recomputed from current node positions
+        }]);
+        setRegionPrompt(null);
+    };
+
+    // ── Compute live bounding box for a region from current node positions ────
+    const computeRegionBounds = (nodeIds) => {
+        const PAD = 22;
+        const sel = nodes.filter(n => nodeIds.includes(n.id));
+        if (!sel.length) return null;
+        const customComp = null;
+        const xs  = sel.map(n => n.x);
+        const ys  = sel.map(n => n.y);
+        const xe  = sel.map(n => {
+            const cfg = gateConfig[n.type];
+            const { width } = getNodeSize(n.type, cfg?.inputs ?? 2, cfg?.outputs ?? 1);
+            return n.x + width;
+        });
+        const ye  = sel.map(n => {
+            const cfg = gateConfig[n.type];
+            const { height } = getNodeSize(n.type, cfg?.inputs ?? 2, cfg?.outputs ?? 1);
+            return n.y + height;
+        });
+        return {
+            x: Math.min(...xs) - PAD,
+            y: Math.min(...ys) - PAD,
+            w: Math.max(...xe) - Math.min(...xs) + PAD * 2,
+            h: Math.max(...ye) - Math.min(...ys) + PAD * 2,
+        };
+    };
     // ── keyboard ──────────────────────────────────────────────────────────────
     useEffect(() => {
         const onKey = (e) => {
@@ -300,9 +485,12 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                 setTool("select");
                 onCancelPending?.();
                 setGhostWorldPos(null);
+                setRegionPrompt(null);
             }
             if (e.key === "f" || e.key === "F") fitAll();
             if (e.key === "h" || e.key === "H") focusOrigin();
+            if ((e.ctrlKey || e.metaKey) && e.key === "c") { e.preventDefault(); handleCopy(); }
+            if ((e.ctrlKey || e.metaKey) && e.key === "v") { e.preventDefault(); handlePaste(); }
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
@@ -507,6 +695,57 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                             : "none",
                     }} />
 
+                    {/* ── Region perimeter boxes (bounds computed live from node positions) ── */}
+                    {regions.map(region => {
+                        const b = computeRegionBounds(region.nodeIds);
+                        if (!b) return null;
+                        return (
+                            <div key={region.id} style={{
+                                position:     "absolute",
+                                left:         b.x, top: b.y,
+                                width:        b.w, height: b.h,
+                                border:       "2px dashed rgba(255,255,255,0.35)",
+                                borderRadius: 10,
+                                background:   "rgba(255,255,255,0.04)",
+                                boxShadow:    "inset 0 0 0 1px rgba(137,180,250,0.18)",
+                                pointerEvents:"none",
+                                boxSizing:    "border-box",
+                            }}>
+                                {/* Label pill — centered, above the top edge, outside the box */}
+                                <div style={{
+                                    position:      "absolute",
+                                    top:           -26,
+                                    left:          "50%",
+                                    transform:     "translateX(-50%)",
+                                    background:    "rgba(0,0,0,0.72)",
+                                    border:        "1px solid rgba(255,255,255,0.15)",
+                                    borderRadius:  6,
+                                    padding:       "3px 10px 3px 10px",
+                                    whiteSpace:    "nowrap",
+                                    display:       "flex",
+                                    alignItems:    "center",
+                                    gap:           6,
+                                    pointerEvents: "auto",
+                                }}>
+                                    <span style={{
+                                        fontSize:      11, fontWeight: 600,
+                                        color:         "#e0e0e0", letterSpacing: "0.04em",
+                                        userSelect:    "none",
+                                    }}>{region.label}</span>
+                                    <span
+                                        style={{ fontSize: 11, color: "#585b70", cursor: "pointer", lineHeight: 1 }}
+                                        onMouseEnter={e => e.currentTarget.style.color = "#f38ba8"}
+                                        onMouseLeave={e => e.currentTarget.style.color = "#585b70"}
+                                        onMouseDown={e => {
+                                            e.stopPropagation();
+                                            setRegions(prev => prev.filter(r => r.id !== region.id));
+                                        }}
+                                    >✕</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+
                     <svg className="wire-layer" style={{ pointerEvents: "none" }}>
                         {/* Completed wires */}
                         {wires.map(wire => {
@@ -515,10 +754,14 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                             if (!n1 || !n2) return null;
                             const p1 = pinPos(n1, wire.from, true);
                             const p2 = pinPos(n2, wire.to, false);
+                            // For IN_N, activity is per output pin; for everything else use node.value
+                            const wireActive = n1.type.startsWith("IN_")
+                                ? (n1.outputs?.[wire.from.index] ?? 0) === 1
+                                : n1.value === 1;
                             return (
                                 <Wire key={wire.id}
                                     x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
-                                    active={n1.value === 1}
+                                    active={wireActive}
                                     waypoints={wire.waypoints || []}
                                 />
                             );
@@ -576,6 +819,8 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                             label={node.label}
                             hz={node.hz}
                             duty={node.duty}
+                            outputs={node.outputs}
+                            onBitToggle={handleBitToggle}
                             workspaceRef={workspaceRef}
                             updateNodePosition={updateNodePosition}
                             onPinClick={handlePinClick}
@@ -609,7 +854,7 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                 {/* Status hints */}
                 {selectedNodes.length > 1 && !pendingTypes?.length && (
                     <div style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", background: "#1a1a2a", color: "#a6adc8", fontSize: 12, padding: "5px 12px", borderRadius: 6, border: "1px solid #2a2a3e", pointerEvents: "none" }}>
-                        {selectedNodes.length} selected · Del to delete
+                        {selectedNodes.length} selected · Del to delete · Ctrl+C to copy · right-click to group
                     </div>
                 )}
                 {activeWire && !pendingTypes?.length && (
@@ -640,6 +885,13 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                             )}
                             {nodes.find(n => n.id === nodeMenu.nodeId)?.type !== "JUNCTION" && (
                                 <div style={menuStyles.item} onMouseDown={handleDuplicateNode}>⧉ Duplicate</div>
+                            )}
+                            {/* Group region — only when ≥2 nodes selected */}
+                            {selectedNodes.length >= 2 && (
+                                <div style={menuStyles.item} onMouseDown={() => {
+                                    setRegionPrompt({ nodeIds: [...selectedNodes], x: nodeMenu.x, y: nodeMenu.y });
+                                    setNodeMenu(null);
+                                }}>⬜ Group region</div>
                             )}
                             {nodes.find(n => n.id === nodeMenu.nodeId)?.type === "CLOCK" && (
                                 <div style={menuStyles.item} onMouseDown={() => {
@@ -674,6 +926,15 @@ function Workspace({ nodes, setNodes, wires, setWires, pendingTypes, onPlacePend
                     </div>
                 )}
             </div>
+
+            {/* ── Region name prompt ── */}
+            {regionPrompt && (
+                <RegionPrompt
+                    x={regionPrompt.x} y={regionPrompt.y}
+                    onConfirm={confirmRegion}
+                    onClose={() => setRegionPrompt(null)}
+                />
+            )}
 
             {/* ── Ghost placement overlay ── */}
             {pendingTypes?.length > 0 && (

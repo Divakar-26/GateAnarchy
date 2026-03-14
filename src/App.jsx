@@ -20,7 +20,8 @@ const makePlayground = (name = "Playground 1") => ({
     { id: uid(), type: "SWITCH", x: 120, y: 200, value: 0, label: "" },
     { id: uid(), type: "LED",    x: 500, y: 200, value: 0, label: "" },
   ],
-  wires: [],
+  wires:   [],
+  regions: [],   // [{ id, label, nodeIds }]
 });
 
 // ── Name Modal ────────────────────────────────────────────────────────────────
@@ -148,17 +149,18 @@ function App() {
   const handlePlacePending = (placements) => {
     setNodes(prev => [
       ...prev,
-      ...placements.map(p => ({
-        id: uid(), type: p.type, x: p.x, y: p.y, value: 0, label: "",
-        ...(p.type === "CLOCK" ? { hz: 1, duty: 0.5 } : {}),
-      })),
+      ...placements.map(p => {
+        const base = { id: uid(), type: p.type, x: p.x, y: p.y, value: 0, label: "" };
+        if (p.type === "CLOCK") return { ...base, hz: 1, duty: 0.5 };
+        if (p.type.startsWith("IN_"))  { const n = parseInt(p.type.split("_")[1]) || 1; return { ...base, outputs: Array(n).fill(0) }; }
+        if (p.type.startsWith("OUT_")) { const n = parseInt(p.type.split("_")[1]) || 1; return { ...base, outputs: Array(n).fill(0) }; }
+        return base;
+      }),
     ]);
     setPendingTypes([]);
   };
 
-  const handleCancelPending = () => {
-    setPendingTypes([]);
-  };
+  const handleCancelPending = () => setPendingTypes([]);
 
   // ── Save component modal ─────────────────────────────────────────────────
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -176,10 +178,11 @@ function App() {
 
   const fileInputRef = useRef(null);
 
-  // ── Active tab ───────────────────────────────────────────────────────────
+  // ── Active tab helpers ───────────────────────────────────────────────────
   const activeTab = tabs.find(t => t.id === activeId) ?? tabs[0];
   const nodes     = activeTab.nodes;
   const wires     = activeTab.wires;
+  const regions   = activeTab.regions ?? [];
 
   const patchTab = (id, patch) => setTabs(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
 
@@ -189,13 +192,16 @@ function App() {
   const setWires = (updater) => setTabs(prev => prev.map(t =>
     t.id === activeId ? { ...t, dirty: true, wires: typeof updater === "function" ? updater(t.wires) : updater } : t
   ));
+  const setRegions = (updater) => setTabs(prev => prev.map(t =>
+    t.id === activeId ? { ...t, dirty: true, regions: typeof updater === "function" ? updater(t.regions ?? []) : updater } : t
+  ));
 
   // ── Tab management ───────────────────────────────────────────────────────
   const addTab = () => {
     const tab = makePlayground(`Playground ${tabs.length + 1}`);
     setTabs(prev => [...prev, tab]);
     setActiveId(tab.id);
-    setPendingTypes([]); // clear ghost on tab switch
+    setPendingTypes([]);
   };
 
   const doCloseTab = (id) => {
@@ -211,8 +217,7 @@ function App() {
     if (tab?.dirty) {
       setConfirmPrompt({
         message: `"${tab.name}" has unsaved changes. Close anyway?`,
-        confirmLabel: "Close",
-        danger: true,
+        confirmLabel: "Close", danger: true,
         onConfirm: () => { doCloseTab(id); setConfirmPrompt(null); },
       });
     } else {
@@ -222,9 +227,7 @@ function App() {
 
   const renameTab = (id, current) => {
     setNamePrompt({
-      title: "Rename playground",
-      defaultValue: current,
-      placeholder: "e.g. 4-bit Adder",
+      title: "Rename playground", defaultValue: current, placeholder: "e.g. 4-bit Adder",
       onConfirm: (val) => { patchTab(id, { name: val }); setNamePrompt(null); },
     });
   };
@@ -232,13 +235,10 @@ function App() {
   // ── Export / Import ──────────────────────────────────────────────────────
   const savePlayground = () => {
     setNamePrompt({
-      title: "Export playground",
-      defaultValue: activeTab.name,
-      placeholder: "filename",
-      confirmLabel: "Export",
+      title: "Export playground", defaultValue: activeTab.name, placeholder: "filename", confirmLabel: "Export",
       onConfirm: (val) => {
         const fname   = val.endsWith(".json") ? val : `${val}.json`;
-        const payload = JSON.stringify({ name: val, nodes, wires }, null, 2);
+        const payload = JSON.stringify({ name: val, nodes, wires, regions }, null, 2);
         const url     = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
         Object.assign(document.createElement("a"), { href: url, download: fname }).click();
         URL.revokeObjectURL(url);
@@ -257,9 +257,10 @@ function App() {
         const data = JSON.parse(ev.target.result);
         if (Array.isArray(data.nodes) && Array.isArray(data.wires)) {
           const tab = makePlayground(data.name || file.name.replace(".json", ""));
-          tab.nodes = data.nodes;
-          tab.wires = data.wires;
-          tab.dirty = false;
+          tab.nodes   = data.nodes;
+          tab.wires   = data.wires;
+          tab.regions = Array.isArray(data.regions) ? data.regions : [];
+          tab.dirty   = false;
           setTabs(prev => [...prev, tab]);
           setActiveId(tab.id);
         }
@@ -326,7 +327,12 @@ function App() {
     localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
     setTabs(prev => prev.map(t => {
       const ids = new Set(t.nodes.filter(n => n.type === name).map(n => n.id));
-      return { ...t, nodes: t.nodes.filter(n => n.type !== name), wires: t.wires.filter(w => !ids.has(w.from.nodeId) && !ids.has(w.to.nodeId)) };
+      return {
+        ...t,
+        nodes:   t.nodes.filter(n => n.type !== name),
+        wires:   t.wires.filter(w => !ids.has(w.from.nodeId) && !ids.has(w.to.nodeId)),
+        regions: (t.regions ?? []).map(r => ({ ...r, nodeIds: r.nodeIds.filter(id => !ids.has(id)) })).filter(r => r.nodeIds.length >= 1),
+      };
     }));
     setSavedNames(Object.keys(customComponentRegistry));
     setComponentMenu(null);
@@ -357,8 +363,9 @@ function App() {
           <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
             <Workspace
               key={activeId}
-              nodes={nodes} setNodes={setNodes}
-              wires={wires} setWires={setWires}
+              nodes={nodes}   setNodes={setNodes}
+              wires={wires}   setWires={setWires}
+              regions={regions} setRegions={setRegions}
               pendingTypes={pendingTypes}
               onPlacePending={handlePlacePending}
               onCancelPending={handleCancelPending}
@@ -376,21 +383,16 @@ function App() {
 
         {namePrompt && (
           <NameModal
-            title={namePrompt.title}
-            defaultValue={namePrompt.defaultValue}
-            placeholder={namePrompt.placeholder}
-            confirmLabel={namePrompt.confirmLabel}
-            onConfirm={namePrompt.onConfirm}
-            onCancel={() => setNamePrompt(null)}
+            title={namePrompt.title} defaultValue={namePrompt.defaultValue}
+            placeholder={namePrompt.placeholder} confirmLabel={namePrompt.confirmLabel}
+            onConfirm={namePrompt.onConfirm} onCancel={() => setNamePrompt(null)}
           />
         )}
 
         {confirmPrompt && (
           <ConfirmModal
-            message={confirmPrompt.message}
-            confirmLabel={confirmPrompt.confirmLabel}
-            danger={confirmPrompt.danger}
-            onConfirm={confirmPrompt.onConfirm}
+            message={confirmPrompt.message} confirmLabel={confirmPrompt.confirmLabel}
+            danger={confirmPrompt.danger} onConfirm={confirmPrompt.onConfirm}
             onCancel={() => setConfirmPrompt(null)}
           />
         )}
