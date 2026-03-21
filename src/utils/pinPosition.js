@@ -10,7 +10,7 @@ export function getPinPosition(node, pin, isOutput) {
             y: node.y + 14,  // center of 28px circle
         };
     }
-
+ 
     const cfg = gateConfig[node.type] || {
         inputs:  customComponentRegistry[node.type]?.inputPinMap?.length  || 2,
         outputs: customComponentRegistry[node.type]?.outputPinMap?.length || 1,

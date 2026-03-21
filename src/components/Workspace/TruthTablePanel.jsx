@@ -1,5 +1,3 @@
-// TruthTablePanel.jsx
-
 import { useState, useMemo } from "react";
 import { customComponentRegistry } from "../../configs/customComponents";
 
@@ -48,8 +46,6 @@ function buildRows(type) {
     }
     return null;
 }
-
-// ── Quine-McCluskey simplification ───────────────────────────────────────────
 
 function tryMerge(a, b) {
     let diff = 0, pos = -1;
@@ -171,36 +167,24 @@ function matchesFilter(ins, pattern) {
     return true;
 }
 
-// ── K-Map ─────────────────────────────────────────────────────────────────────
-// Gray code sequences for K-Map axes
 const GRAY2 = ["00","01","11","10"];
 const GRAY1 = ["0","1"];
 
-// Returns { cells, rowHeaders, colHeaders, rowLabel, colLabel }
-// for a given inputCount and output column index.
 function buildKMap(rows, inputLabels, outputIndex, inputCount) {
-    // Only support 2, 3, 4 inputs
     if (inputCount < 2 || inputCount > 4) return null;
-
-    // For 2 vars: rows=A(1 bit), cols=B(1 bit) — use GRAY1 × GRAY1 but laid in 1×4 style
-    // Actually layout:
-    //   2 vars: 1 row var (A), 1 col var (B) → 2×2 grid but shown as 1 row × 4 pattern
-    //   3 vars: row var = C (1 bit), col vars = AB (2 bits)
-    //   4 vars: row vars = CD (2 bits), col vars = AB (2 bits)
 
     let rowBits, colBits;
     if (inputCount === 2) {
-        rowBits = [0]; colBits = [1];         // A rows, B cols
+        rowBits = [0]; colBits = [1];
     } else if (inputCount === 3) {
-        rowBits = [2]; colBits = [0, 1];      // C rows, AB cols
+        rowBits = [2]; colBits = [0, 1];
     } else {
-        rowBits = [2, 3]; colBits = [0, 1];   // CD rows, AB cols
+        rowBits = [2, 3]; colBits = [0, 1];
     }
 
     const rowGray = rowBits.length === 1 ? GRAY1 : GRAY2;
     const colGray = colBits.length === 1 ? GRAY1 : GRAY2;
 
-    // Build lookup: inputStr → output value
     const lookup = {};
     rows.forEach(r => {
         const key = r.ins.join("");
@@ -211,7 +195,6 @@ function buildKMap(rows, inputLabels, outputIndex, inputCount) {
     for (const rg of rowGray) {
         const rowCells = [];
         for (const cg of colGray) {
-            // Build the full input vector
             const vec = new Array(inputCount).fill(0);
             rowBits.forEach((b, i) => { vec[b] = parseInt(rg[i]); });
             colBits.forEach((b, i) => { vec[b] = parseInt(cg[i]); });
@@ -228,15 +211,13 @@ function buildKMap(rows, inputLabels, outputIndex, inputCount) {
     return { cells, rowGray, colGray, rowLabel, colLabel };
 }
 
-// Compute implicant groups from QMC primes and return colored group overlays
-// Returns array of { minterms: Set, color }
 const GROUP_COLORS = [
-    "rgba(137,180,250,0.22)",  // blue
-    "rgba(250,179,135,0.22)",  // peach
-    "rgba(203,166,247,0.22)",  // mauve
-    "rgba(166,227,161,0.22)",  // green
-    "rgba(249,226,175,0.22)",  // yellow
-    "rgba(243,139,168,0.22)",  // pink
+    "rgba(137,180,250,0.22)",
+    "rgba(250,179,135,0.22)",
+    "rgba(203,166,247,0.22)",
+    "rgba(166,227,161,0.22)",
+    "rgba(249,226,175,0.22)",
+    "rgba(243,139,168,0.22)",
 ];
 const GROUP_BORDER_COLORS = [
     "#89b4fa", "#fab387", "#cba6f7", "#a6e3a1", "#f9e2af", "#f38ba8"
@@ -249,7 +230,6 @@ function getKMapGroups(rows, outputIndex, inputCount) {
         .map(r => parseInt(r.ins.join(""), 2));
     if (minterms.length === 0 || minterms.length === (1 << inputCount)) return [];
 
-    // Re-run a simplified grouping: extract prime implicants from QMC
     let implicants = minterms.map(m => ({
         str: m.toString(2).padStart(inputCount, "0"),
         minterms: new Set([m]),
@@ -325,10 +305,10 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
         );
     }
 
-    const CELL = 44;   // cell size px
-    const GAP  = 1;    // gap between cells
+    const CELL = 44;
+    const GAP  = 1;
 
-    // Map minterm → {ri, ci}
+    // Map minterm -> {ri, ci}
     const mintermToPos = {};
     kmap.cells.forEach((row, ri) => row.forEach((cell, ci) => {
         mintermToPos[cell.minterm] = { ri, ci };
@@ -545,11 +525,11 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
     );
 }
 
-// ── Panel ─────────────────────────────────────────────────────────────────────
+
 function TruthTablePanel({ type, onClose }) {
     const [filter, setFilter] = useState("");
     const [showExpr, setShowExpr] = useState(true);
-    const [activeTab, setActiveTab] = useState("table"); // "table" | "kmap"
+    const [activeTab, setActiveTab] = useState("table");
 
     const data = useMemo(() => buildRows(type), [type]);
     if (!data) return null;
@@ -665,7 +645,7 @@ function TruthTablePanel({ type, onClose }) {
                     }}
                     onMouseEnter={e => e.currentTarget.style.color = "#cdd6f4"}
                     onMouseLeave={e => e.currentTarget.style.color = "#6c7086"}
-                    >✕</button>
+                    >X</button>
                 </div>
             </div>
 
@@ -763,7 +743,7 @@ function TruthTablePanel({ type, onClose }) {
                 <div style={{
                     padding: "5px 12px", borderTop: "1px solid #313244",
                     display: "flex", gap: 12, fontSize: 10, color: "#45475a", flexShrink: 0,
-                }}>
+                }}> 
                     <span><span style={{ color: "#89b4fa" }}>■</span> in</span>
                     <span><span style={{ color: "#a6e3a1" }}>■</span> out</span>
                     <span style={{ marginLeft: "auto" }}>X̄ = NOT X</span>

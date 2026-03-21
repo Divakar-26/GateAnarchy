@@ -1,4 +1,3 @@
-// src/configs/gates.js
 
 import { customComponentRegistry } from "./customComponents";
 
@@ -9,7 +8,7 @@ export const gateConfig = {
   AND:      { inputs: 2, outputs: 1 },
   OR:       { inputs: 2, outputs: 1 },
   NOT:      { inputs: 1, outputs: 1 },
-  JUNCTION: { inputs: 1, outputs: 1 }, // wire branch point — pass-through dot
+  JUNCTION: { inputs: 1, outputs: 1 },
 };
 
 export const gateColors = {
@@ -22,16 +21,15 @@ export const gateColors = {
   JUNCTION: "#555e6e",
 };
 
-// Darker custom component palette — all pass white text contrast
 const CUSTOM_COLORS = [
-  "#3d2b8e",  // deep violet
-  "#0a6e50",  // deep teal
-  "#0a5a8a",  // deep blue
-  "#8a1a5a",  // deep magenta
-  "#7a2a10",  // deep burnt orange
-  "#0a6a6a",  // deep cyan
-  "#5a3a8e",  // muted indigo
-  "#1a6a30",  // deep forest green
+  "#3d2b8e",
+  "#0a6e50",
+  "#0a5a8a", 
+  "#8a1a5a",
+  "#7a2a10",
+  "#0a6a6a",
+  "#5a3a8e",
+  "#1a6a30",
 ];
 
 function customColor(name) {

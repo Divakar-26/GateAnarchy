@@ -53,7 +53,7 @@ export function SettingsProvider({ children }) {
     children
   );
 }
-
+ 
 export function useSettings() {
   return useContext(SettingsContext); 
 } 

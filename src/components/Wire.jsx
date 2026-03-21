@@ -1,14 +1,10 @@
-// src/components/Wire.jsx
-// Perf: React.memo, colors/style as props (no useSettings subscription per wire),
-//       waypoints support preserved from document-5.
-
 import { memo } from 'react';
 
 const Wire = memo(function Wire({ x1, y1, x2, y2, active, waypoints=[], activeColor, inactiveColor, wireStyle }) {
     const color = active ? activeColor : inactiveColor;
     const width = active ? 2.5 : 1.8;
 
-    let path;
+    let path; 
     if (waypoints.length>0||wireStyle==='straight') {
         const pts=[{x:x1,y:y1},...waypoints,{x:x2,y:y2}];
         path=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ');

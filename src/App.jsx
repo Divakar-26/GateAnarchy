@@ -1,4 +1,3 @@
-// App.jsx
 import { useState, useRef, useEffect } from 'react'
 import Sidebar from './components/Sidebar/Sidebar.jsx'
 import Workspace from './components/Workspace/Workspace.jsx'
@@ -22,7 +21,6 @@ const makePlayground = (name = "Playground 1") => ({
   regions: [],
 });
 
-// ── Name Modal ────────────────────────────────────────────────────────────────
 function NameModal({ title, defaultValue = "", placeholder, onConfirm, onCancel, confirmLabel = "OK" }) {
   const [val, setVal] = useState(defaultValue);
   return (
@@ -42,7 +40,6 @@ function NameModal({ title, defaultValue = "", placeholder, onConfirm, onCancel,
   );
 }
 
-// ── Confirm Modal ─────────────────────────────────────────────────────────────
 function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Yes", danger = false }) {
   return (
     <div style={S.overlay} onClick={onCancel}>
@@ -57,10 +54,7 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Yes", dang
   );
 }
 
-// ── Tab Bar ───────────────────────────────────────────────────────────────────
-// Rename only via right-click context menu — double-click is intentionally removed.
 function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleClose, onSettings }) {
-  // tabMenu: { tabId, x, y } | null
   const [tabMenu, setTabMenu] = useState(null);
 
   const closeMenu = () => setTabMenu(null);
@@ -71,6 +65,7 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
         display: "flex", alignItems: "stretch",
         background: "var(--secondary-bg)", borderBottom: "3px solid #000",
         height: 40, flexShrink: 0, overflowX: "auto", overflowY: "hidden",
+        transition: "background 0.3s ease",
       }}
         onClick={closeMenu}
       >
@@ -97,6 +92,7 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
                 borderBottom: active ? "3px solid var(--primary-dark)" : "3px solid transparent",
                 userSelect: "none",
                 fontWeight: 700,
+                transition: "background 0.3s ease, border-bottom 0.3s ease",
               }}
             >
               <span style={{
@@ -105,6 +101,7 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
                 color: active ? "#000" : "var(--primary-fg)",
                 fontWeight: active ? 900 : 700,
                 textTransform: "uppercase",
+                transition: "color 0.3s ease",
               }}>
                 {tab.dirty ? <span style={{ color: "var(--primary-dark)", marginRight: 2, fontSize: 14 }}>●</span> : null}
                 {tab.name}
@@ -115,7 +112,7 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
                   style={{ color: active ? "#000" : "var(--primary-fg)", fontSize: 14, lineHeight: 1, padding: "1px 1px", borderRadius: 0, flexShrink: 0, cursor: "pointer", fontWeight: 900 }}
                   onMouseEnter={e => e.currentTarget.style.color = "var(--primary-dark)"}
                   onMouseLeave={e => e.currentTarget.style.color = active ? "#000" : "var(--primary-fg)"}
-                >✕</span>
+                >X</span>
               )}
             </div>
           );
@@ -151,7 +148,7 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
           {tabs.length > 1 && (
             <div style={{ ...S.menuItem, background: "var(--primary-dark)" }} onClick={() => {
               onClose(tabMenu.tabId); closeMenu();
-            }} onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="translate(-2px, -2px)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}} onMouseLeave={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="none"; e.target.style.boxShadow="none"}}>✕ CLOSE</div>
+            }} onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="translate(-2px, -2px)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}} onMouseLeave={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="none"; e.target.style.boxShadow="none"}}>X CLOSE</div>
           )}
         </div>
       )}
@@ -366,7 +363,6 @@ function App() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <SettingsProvider>
       <div style={{ display: "flex", height: "100vh" }} onClick={() => setComponentMenu(null)}>
         <Sidebar
           onRequestPlace={requestPlace}
@@ -466,7 +462,6 @@ function App() {
           </div>
         )}
       </div>
-    </SettingsProvider>
   );
 }
 
@@ -487,14 +482,14 @@ function PlayBtn({ onClick, children }) {
 
 const S = {
   overlay:     { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000 },
-  modal:       { background: "var(--secondary-bg)", color: "var(--primary-fg)", borderRadius: 0, padding: "24px 28px", minWidth: 300, border: "4px solid #000", boxShadow: "8px 8px 0 rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", gap: 12, fontFamily: "'Courier New', monospace" },
-  contextMenu: { position: "fixed", background: "var(--secondary-bg)", border: "3px solid #000", borderRadius: 0, padding: 8, minWidth: 160, boxShadow: "6px 6px 0 rgba(0,0,0,0.4)", zIndex: 4000, display: "flex", flexDirection: "column", gap: 2, fontFamily: "'Courier New', monospace" },
-  menuHeader:  { padding: "8px 10px", fontSize: 12, color: "var(--primary-fg)", borderBottom: "2px solid #000", marginBottom: 4, fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.08em" },
-  menuItem:    { padding: "10px 12px", borderRadius: 0, cursor: "pointer", fontSize: 12, color: "#000", userSelect: "none", background: "var(--secondary-fg)", fontWeight: "700", border: "2px solid #000", transition: "all 0.1s", textTransform: "uppercase" },
-  input:       { padding: "10px 12px", borderRadius: 0, fontSize: 13, border: "3px solid #000", background: "var(--primary-fg)", color: "#000", outline: "none", width: "100%", boxSizing: "border-box", fontWeight: "700", fontFamily: "'Courier New', monospace" },
-  btnCancel:   { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--secondary-fg)", color: "#000", cursor: "pointer", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.1s" },
-  btnPrimary:  { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--primary-light)", color: "#000", fontWeight: "900", cursor: "pointer", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.1s" },
-  btnDanger:   { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--primary-dark)", color: "#000", fontWeight: "900", cursor: "pointer", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.1s" },
+  modal:       { background: "var(--secondary-bg)", color: "var(--primary-fg)", borderRadius: 0, padding: "24px 28px", minWidth: 300, border: "4px solid #000", boxShadow: "8px 8px 0 rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", gap: 12, fontFamily: "'Courier New', monospace", transition: "background 0.3s ease, color 0.3s ease" },
+  contextMenu: { position: "fixed", background: "var(--secondary-bg)", border: "3px solid #000", borderRadius: 0, padding: 8, minWidth: 160, boxShadow: "6px 6px 0 rgba(0,0,0,0.4)", zIndex: 4000, display: "flex", flexDirection: "column", gap: 2, fontFamily: "'Courier New', monospace", transition: "background 0.3s ease" },
+  menuHeader:  { padding: "8px 10px", fontSize: 12, color: "var(--primary-fg)", borderBottom: "2px solid #000", marginBottom: 4, fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.08em", transition: "color 0.3s ease" },
+  menuItem:    { padding: "10px 12px", borderRadius: 0, cursor: "pointer", fontSize: 12, color: "#000", userSelect: "none", background: "var(--secondary-fg)", fontWeight: "700", border: "2px solid #000", transition: "all 0.3s ease", textTransform: "uppercase" },
+  input:       { padding: "10px 12px", borderRadius: 0, fontSize: 13, border: "3px solid #000", background: "var(--primary-fg)", color: "#000", outline: "none", width: "100%", boxSizing: "border-box", fontWeight: "700", fontFamily: "'Courier New', monospace", transition: "background 0.3s ease" },
+  btnCancel:   { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--secondary-fg)", color: "#000", cursor: "pointer", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.3s ease" },
+  btnPrimary:  { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--primary-light)", color: "#000", fontWeight: "900", cursor: "pointer", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.3s ease" },
+  btnDanger:   { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--primary-dark)", color: "#000", fontWeight: "900", cursor: "pointer", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.3s ease" },
 };
 
 // ── Theme Provider ───────────────────────────────────────────────────────────
@@ -502,11 +497,10 @@ function ThemeProvider({ children }) {
   const { settings } = useSettings();
   
   useEffect(() => {
-    const themeClass = `theme-${settings.theme}`;
-    document.documentElement.className = themeClass;
+    document.documentElement.className = `theme-${settings.theme}`;
   }, [settings.theme]);
   
-  return children;
+  return <>{children}</>;
 }
 
 function AppWithTheme() {

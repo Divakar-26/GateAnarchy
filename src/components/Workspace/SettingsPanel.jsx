@@ -4,8 +4,8 @@ function Row({ label, hint, children }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 0" }}>
       <div>
-        <div style={{ fontSize: 13, color: "var(--primary-fg)", fontWeight: 700, textTransform: "uppercase" }}>{label}</div>
-        {hint && <div style={{ fontSize: 11, color: "#ccc", marginTop: 1 }}>{hint}</div>}
+        <div style={{ fontSize: 13, color: "var(--primary-fg)", fontWeight: 700, textTransform: "uppercase", transition: "color 0.3s ease" }}>{label}</div>
+        {hint && <div style={{ fontSize: 11, color: "#ccc", marginTop: 1, transition: "color 0.3s ease" }}>{hint}</div>}
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
     </div>
@@ -20,7 +20,7 @@ function Toggle({ value, onChange }) {
         width: 44, height: 24, borderRadius: 0, cursor: "pointer",
         background: value ? "var(--primary-light)" : "var(--secondary-bg)",
         border: `3px solid #000`,
-        position: "relative", transition: "all 0.15s",
+        position: "relative", transition: "all 0.3s ease",
         flexShrink: 0,
         boxShadow: "2px 2px 0 rgba(0,0,0,0.2)",
       }}
@@ -30,7 +30,7 @@ function Toggle({ value, onChange }) {
         left: value ? 20 : 2,
         width: 12, height: 12, borderRadius: 0,
         background: value ? "#000" : "var(--secondary-fg)",
-        transition: "left 0.15s",
+        transition: "left 0.3s ease, background 0.3s ease",
         border: "2px solid #000",
       }} />
     </div>
@@ -45,7 +45,8 @@ function ColorPicker({ value, onChange }) {
         background: value, 
         border: "3px solid #000",
         cursor: "pointer",
-        boxShadow: "2px 2px 0 rgba(0,0,0,0.2)",
+        boxShadow: "2px 2px 0 rgba(0,0,0,0.2)", 
+        transition: "background 0.3s ease",
       }} />
       <input
         type="color" 
@@ -71,6 +72,7 @@ function Select({ value, onChange, options }) {
         padding: "5px 8px", cursor: "pointer", outline: "none",
         fontWeight: 700, textTransform: "uppercase",
         boxShadow: "2px 2px 0 rgba(0,0,0,0.2)",
+        transition: "background 0.3s ease, color 0.3s ease",
       }}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -86,7 +88,7 @@ function Slider({ value, onChange, min, max, step, format }) {
         onChange={e => onChange(Number(e.target.value))}
         style={{ width: 90, accentColor: "var(--primary-light)" }}
       />
-      <span style={{ fontSize: 11, color: "var(--primary-fg)", minWidth: 28, textAlign: "right", fontWeight: 700 }}>
+      <span style={{ fontSize: 11, color: "var(--primary-fg)", minWidth: 28, textAlign: "right", fontWeight: 700, transition: "color 0.3s ease" }}>
         {format ? format(value) : value}
       </span>
     </div>
@@ -101,11 +103,11 @@ function Section({ title }) {
       padding: "14px 0 6px",
       borderTop: "2px solid #000",
       marginTop: 6,
+      transition: "color 0.3s ease",
     }}>{title}</div>
   );
 }
 
-// ── Panel ─────────────────────────────────────────────────────────────────────
 function SettingsPanel({ onClose }) {
   const { settings, setSettings, resetSettings } = useSettings();
   const set = (key) => (val) => setSettings({ [key]: val });
@@ -131,11 +133,11 @@ function SettingsPanel({ onClose }) {
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 18px 14px", borderBottom: "3px solid #000", flexShrink: 0,
           background: "var(--primary-light)",
+          transition: "background 0.3s ease",
         }}>
           <span style={{ fontSize: 16, fontWeight: 900, color: "#000", textTransform: "uppercase", letterSpacing: "0.08em" }}>SETTINGS</span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -147,7 +149,7 @@ function SettingsPanel({ onClose }) {
                 fontSize: 11, padding: "6px 10px", fontWeight: 700,
                 textTransform: "uppercase",
                 boxShadow: "2px 2px 0 rgba(0,0,0,0.2)",
-                transition: "all 0.1s",
+                transition: "all 0.3s ease",
               }}
               onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}}
               onMouseLeave={e => {e.target.style.background="var(--secondary-fg)"; e.target.style.boxShadow="2px 2px 0 rgba(0,0,0,0.2)"}}
@@ -161,11 +163,10 @@ function SettingsPanel({ onClose }) {
               }}
               onMouseEnter={e => e.currentTarget.style.color = "var(--primary-dark)"}
               onMouseLeave={e => e.currentTarget.style.color = "#000"}
-            >✕</button>
+            >X</button>
           </div>
         </div>
 
-        {/* Body */}
         <div style={{ overflowY: "auto", padding: "8px 18px 16px", flex: 1 }}>
 
           <Section title="Theme" />

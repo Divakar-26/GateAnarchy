@@ -1,5 +1,3 @@
-// src/components/Workspace/propagate.js
-
 import { evaluateCustomComponent } from "../../utils/propagateCustom";
 import { evaluateFeedbackComponent, customComponentRegistry } from "../../configs/customComponents";
 
@@ -44,7 +42,6 @@ function internalStateEq(a, b) {
     if (ka.length !== kb.length) return false;
     for (const k of ka) {
         const va = a[k], vb = b[k];
-        // Sub-states are objects, node values are arrays
         if (Array.isArray(va) && Array.isArray(vb)) { if (!arrEq(va, vb)) return false; }
         else if (typeof va === 'object' && typeof vb === 'object') { if (!internalStateEq(va, vb)) return false; }
         else if (va !== vb) return false;
@@ -100,7 +97,6 @@ export function propagate(nodes, wires) {
             case "JUNCTION": nv = filled[0] ?? 0;                  break;
             default:
                 if (custom?.hasFeedback) {
-                    // Live simulation — carries full hierarchical internal state
                     const { outputs, newInternalState } = evaluateFeedbackComponent(
                         node.type, filled, node.internalState || {}
                     );
@@ -113,7 +109,6 @@ export function propagate(nodes, wires) {
                     const outs = evaluateCustomComponent(node.type, filled);
                     if (!arrEq(no, outs)) { no = outs; nv = outs[0] ?? 0; }
                 } else if (custom) {
-                    // hasFeedback=false but truthTable is also null/missing (shouldn't happen)
                     nv = 0;
                 } else if (node.type.startsWith("OUT_")) {
                     nv = filled[0] ?? 0;
@@ -149,6 +144,6 @@ export function propagate(nodes, wires) {
             return u;
         }
         return orig;
-    });
+    }); 
     return dirty ? result : nodes;
 }

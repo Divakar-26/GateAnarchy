@@ -1,8 +1,6 @@
-// src/configs/customComponents.js
 
 export const customComponentRegistry = {};
 
-// ── Utilities ────────────────────────────────────────────────────────────────
 function arrEq(a, b) {
   if (a === b) return true;
   if (!a || !b || a.length !== b.length) return false;
@@ -43,17 +41,10 @@ function topoSort(nodeArray, wires) {
   return sorted.map(id => byId.get(id)).filter(Boolean);
 }
 
-// ── Feedback detection ───────────────────────────────────────────────────────
-// Returns true if:
-//   (a) there is a direct wire cycle in this circuit, OR
-//   (b) ANY node is itself a feedback (sequential) component.
-// This means a 4-bit register containing D-latches is correctly flagged.
 function hasFeedbackCircuit(nodes, wires, registry) {
-  // (b) — contains nested feedback component?
   for (const n of nodes) {
     if (registry[n.type]?.hasFeedback) return true;
   }
-  // (a) — direct cycle via DFS
   const adj = new Map();
   nodes.forEach(n => adj.set(n.id, []));
   wires.forEach(w => {
@@ -74,7 +65,6 @@ function hasFeedbackCircuit(nodes, wires, registry) {
   return false;
 }
 
-// ── Evaluate one gate node ───────────────────────────────────────────────────
 function evalGate(type, ins, registry) {
   switch (type) {
     case "AND":      return [(ins[0] && ins[1]) ? 1 : 0];
@@ -96,8 +86,6 @@ function evalGate(type, ins, registry) {
   }
 }
 
-// ── Combinational truth-table builder ───────────────────────────────────────
-// Only called when hasFeedbackCircuit() returned false, so no nested feedback here.
 function buildTruthTable(nodes, wires, inputPinMap, outputPinMap, registry) {
   const ic = inputPinMap.length;
   const table = {};
@@ -170,15 +158,12 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
     incoming[w.to.nodeId].push(w);
   });
 
-  // Working copy of sub-component states (mutated as we simulate each pass)
   const subStates = {};
   nodes.forEach(n => {
     if (registry[n.type]?.hasFeedback)
       subStates[n.id] = currentInternalState[`__sub_${n.id}`] || {};
   });
 
-  // --- Iterative relaxation until stable ---
-  // 200 passes handles deeply nested feedback circuits.
   for (let pass = 0; pass < 200; pass++) {
     let changed = false;
     nodes.forEach(node => {
@@ -195,9 +180,8 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
 
       let newVal;
       if (subComp?.hasFeedback) {
-        // Recursively simulate nested feedback component with its own persisted state
         const result = evaluateFeedbackComponent(node.type, ins, subStates[node.id] || {});
-        subStates[node.id] = result.newInternalState; // ← keep the updated sub-state
+        subStates[node.id] = result.newInternalState;
         newVal = result.outputs.length > 0
           ? result.outputs
           : new Array(subComp.outputCount).fill(0);
@@ -219,8 +203,6 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
   // --- Collect outputs ---
   const outputs = outputPinMap.map(({ nodeId }) => readOutput(values, nodeId, 0));
 
-  // --- Persist full internal state ---
-  const newInternalState = {};
   nodes.forEach(n => {
     newInternalState[n.id] = Array.isArray(values[n.id]) ? [...values[n.id]] : [0];
     if (subStates[n.id] !== undefined)
@@ -229,8 +211,6 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
 
   return { outputs, newInternalState };
 }
-
-// ── Public API ───────────────────────────────────────────────────────────────
 
 export function registerComponent(name, nodes, wires, inputPinMap, outputPinMap) {
   const clonedNodes = JSON.parse(JSON.stringify(nodes));
@@ -251,13 +231,11 @@ export function registerComponent(name, nodes, wires, inputPinMap, outputPinMap)
   const feedback = hasFeedbackCircuit(clonedNodes, clonedWires, customComponentRegistry);
 
   customComponentRegistry[name] = {
-    name,
     inputPinMap:  sortedInputs,
     outputPinMap: sortedOutputs,
     inputCount:   sortedInputs.length,
     outputCount:  sortedOutputs.length,
     hasFeedback:  feedback,
-    // Combinational: bake truth table.  Sequential: null — always simulated live.
     truthTable: feedback
       ? null
       : buildTruthTable(clonedNodes, clonedWires, sortedInputs, sortedOutputs, customComponentRegistry),
@@ -271,4 +249,4 @@ export function registerComponent(name, nodes, wires, inputPinMap, outputPinMap)
 export function loadSavedComponents() {
   const saved = localStorage.getItem("customComponents");
   if (saved) Object.assign(customComponentRegistry, JSON.parse(saved));
-}
+} 

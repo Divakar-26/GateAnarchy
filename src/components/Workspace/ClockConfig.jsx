@@ -1,11 +1,5 @@
-// src/components/Workspace/ClockConfig.jsx
-//
-// Floating panel opened from the node context menu when type === "CLOCK".
-// Lets the user set frequency (Hz) and duty cycle (%).
-
 import { useState } from "react";
 
-// ── tiny waveform preview ──────────────────────────────────────────────────
 function WaveformPreview({ duty }) {
     const W = 176, H = 30;
     const cycles = 2;
@@ -28,12 +22,10 @@ function WaveformPreview({ duty }) {
             <line x1="0" y1={top} x2={W} y2={top} stroke="#2a2a3e" strokeWidth="1" strokeDasharray="3 3" />
             <path d={d} fill="none" stroke="#89b4fa" strokeWidth="1.5"
                 strokeLinejoin="miter" strokeLinecap="square" />
-            {/* HIGH label */}
             <text x={hiW / 2} y={top - 2} textAnchor="middle"
                 fontSize="8" fill="#89b4fa" fontFamily="monospace">
                 {Math.round(duty * 100)}%
             </text>
-            {/* LOW label */}
             <text x={hiW + loW / 2} y={bot + 9} textAnchor="middle"
                 fontSize="8" fill="#585b70" fontFamily="monospace">
                 {Math.round((1 - duty) * 100)}%
@@ -42,7 +34,6 @@ function WaveformPreview({ duty }) {
     );
 }
 
-// ── main component ─────────────────────────────────────────────────────────
 function ClockConfig({ node, x, y, onSave, onClose }) {
     const initHz   = node.hz   ?? 1;
     const initDuty = Math.round((node.duty ?? 0.5) * 100);
@@ -90,10 +81,8 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
             onClick={e => e.stopPropagation()}
             onMouseDown={e => e.stopPropagation()}
         >
-            {/* ── header ── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    {/* clock icon */}
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                         <circle cx="7" cy="7" r="6" stroke="#89b4fa" strokeWidth="1.5"/>
                         <line x1="7" y1="3.5" x2="7" y2="7" stroke="#89b4fa" strokeWidth="1.5" strokeLinecap="round"/>
@@ -109,10 +98,9 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#cdd6f4"}
                 onMouseLeave={e => e.currentTarget.style.color = "#6c7086"}
-                >✕</button>
+                >X</button>
             </div>
 
-            {/* ── frequency ── */}
             <div style={row}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                     <span style={lbl}>Frequency</span>
@@ -138,7 +126,6 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
                     <span style={{ fontSize: 9, color: "#f38ba8" }}>0.1 – 100 Hz</span>
                 )}
 
-                {/* Quick presets */}
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
                     {[0.5, 1, 2, 5, 10].map(v => (
                         <button key={v} onClick={() => setHz(String(v))} style={{
@@ -152,7 +139,6 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
                 </div>
             </div>
 
-            {/* ── duty cycle ── */}
             <div style={row}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                     <span style={lbl}>Duty cycle</span>
@@ -166,7 +152,6 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
                     onChange={e => setDuty(e.target.value)}
                     style={{ accentColor: "#89b4fa", width: "100%" }}
                 />
-                {/* Waveform preview */}
                 {hzOk && dutyOk && (
                     <div style={{ marginTop: 2 }}>
                         <WaveformPreview duty={dutyNum / 100} />
@@ -174,7 +159,6 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
                 )}
             </div>
 
-            {/* ── buttons ── */} 
             <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
                 <button onClick={onClose} style={{
                     flex: 1, padding: "7px 0", borderRadius: 6,
@@ -195,4 +179,4 @@ function ClockConfig({ node, x, y, onSave, onClose }) {
     );
 }
 
-export default ClockConfig;
+export default ClockConfig; 

@@ -1,11 +1,9 @@
 import "../styles/Pin.css";
 import { useState } from "react";
 
-// index/total/nodeHeight passed as numbers so Pin can place itself absolutely
 function Pin({ type, index, total, nodeHeight, nodeId, onPinClick, label }) {
     const [hovered, setHovered] = useState(false);
 
-    // Evenly space pins across nodeHeight
     const spacing = nodeHeight / (total + 1);
     const topPx   = spacing * (index + 1);
 
@@ -50,4 +48,4 @@ function Pin({ type, index, total, nodeHeight, nodeId, onPinClick, label }) {
     );
 }
 
-export default Pin;  
+export default Pin;   

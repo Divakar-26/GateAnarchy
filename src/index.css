@@ -1,19 +1,14 @@
-/* ─── ROOT / GOLDEN THEME (DEFAULT) ─── */
 :root {
   font-family: 'Courier New', monospace;
   line-height: 1.6;
   font-weight: 700;
-
   color-scheme: dark;
   color: #f5f1e8;
   background-color: #18161a;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* Golden Theme */
   --primary-light: #ffd700;
   --primary-dark: #ff6b35;
   --primary-bg: #2a2825;
@@ -22,7 +17,19 @@
   --secondary-fg: #f5d5b8;
 }
 
-/* ─── PURPLE THEME ─── */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+:root.theme-golden {
+  --primary-light: #ffd700;
+  --primary-dark: #ff6b35;
+  --primary-bg: #2a2825;
+  --primary-fg: #f5f1e8;
+  --secondary-bg: #3d3935;
+  --secondary-fg: #f5d5b8;
+}
+
 :root.theme-purple {
   --primary-light: #7b6df5;
   --primary-dark: #5F4FE6;
@@ -32,8 +39,7 @@
   --secondary-fg: #c7b6f3;
 }
 
-/* ─── CRIMSON THEME ─── */
-:root.theme-crimson {
+:root.theme-crimson { 
   --primary-light: #EA435F;
   --primary-dark: #D00000;
   --primary-bg: #0f0f0f;
@@ -42,7 +48,6 @@
   --secondary-fg: #f2a7b2;
 }
 
-/* ─── MYSTIQUE THEME ─── */
 :root.theme-mystique {
   --primary-light: #C4A1FF;
   --primary-dark: #9678FF;
@@ -52,7 +57,6 @@
   --secondary-fg: #c7b6f3;
 }
 
-/* ─── SUNSET THEME ─── */
 :root.theme-sunset {
   --primary-light: #F07200;
   --primary-dark: #ff8011;
@@ -62,7 +66,6 @@
   --secondary-fg: #ffb679;
 }
 
-/* ─── FOREST THEME ─── */
 :root.theme-forest {
   --primary-light: #599D77;
   --primary-dark: #39654c;

@@ -1,5 +1,3 @@
-// src/components/Sidebar/Sidebar.jsx
-
 import { useState } from "react";
 import "../../styles/sidebar.css";
 
@@ -23,7 +21,6 @@ function Folder({ label, children, defaultOpen = true }) {
     );
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
 function Sidebar({ onRequestPlace, onSaveCircuit, savedNames = [], onRenameComponent }) {
     return (
         <div className="sidebar">
@@ -79,7 +76,7 @@ function Sidebar({ onRequestPlace, onSaveCircuit, savedNames = [], onRenameCompo
             </div>
 
             <button className="sidebar-save" onClick={onSaveCircuit}>
-                💾 Save Circuit
+                SAVE CIRCUIT
             </button>
         </div>
     );

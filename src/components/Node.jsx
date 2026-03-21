@@ -1,9 +1,3 @@
-// src/components/Node.jsx
-// Base: document-5 full feature set (clock face, junction, labels, Hz badge, etc.)
-// Perf: React.memo with custom comparator, cameraRef instead of camera state (no
-//       re-render on zoom/pan), useRef for dragOffset (no setState on drag start),
-//       nodeColor passed as prop (no useSettings context subscription).
-
 import { memo, useRef, useState } from 'react';
 import '../styles/node.css';
 import Pin from "./Pin";
@@ -11,8 +5,7 @@ import { gateConfig } from '../configs/gates';
 import { customComponentRegistry } from "../configs/customComponents";
 import { getNodeSize } from "../utils/nodeSize";
 
-// ── Clock face SVG ────────────────────────────────────────────────────────────
-function ClockFace({ active, size }) {
+function ClockFace({ active, size }) { 
     const r=size*0.32, cx=size/2, cy=size/2, wY=cy, seg=r*0.38;
     const wPath=[
         `M ${cx-r*0.7} ${wY}`, `L ${cx-r*0.7} ${wY-seg}`, `L ${cx-r*0.2} ${wY-seg}`,
@@ -28,16 +21,15 @@ function ClockFace({ active, size }) {
     );
 }
 
-// ── Node ──────────────────────────────────────────────────────────────────────
 const Node = memo(function Node({
     id, type, x, y, value, label, hz, duty, outputs,
-    nodeColor,          // pre-computed by Workspace — no useSettings needed
-    cameraRef,          // ref, always fresh — no stale closure in drag handlers
+    nodeColor,
+    cameraRef,
     workspaceRef, updateNodePosition, onPinClick, onBitToggle,
     selected, onSelect, onContextMenu, cancelWire, eraseMode,
 }) {
     const dragStart  = useRef({x:0,y:0});
-    const dragOffset = useRef({x:0,y:0}); // ref not state — no re-render on drag start
+    const dragOffset = useRef({x:0,y:0});
     const dragging   = useRef(false);
     const [hovered, setHovered] = useState(false);
 
@@ -170,7 +162,6 @@ const Node = memo(function Node({
     prev.hz        === next.hz        &&
     prev.nodeColor === next.nodeColor &&
     prev.outputs   === next.outputs   &&
-    // stable useCallback references — cheap reference compare
     prev.updateNodePosition === next.updateNodePosition &&
     prev.onPinClick         === next.onPinClick         &&
     prev.onSelect           === next.onSelect           &&
