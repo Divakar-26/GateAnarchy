@@ -148,14 +148,14 @@ const Node = memo(function Node({
 
             {}
             {label&&!isJunction&&(
-                <div style={{position:'absolute',whiteSpace:'nowrap',fontSize:'11px',fontWeight:500,color:'#cdd6f4',pointerEvents:'none',userSelect:'none',opacity:hovered?1:0.65,transition:'opacity 0.15s',
-                    ...(isSwitch||isClock?{left:nw+8,top:'50%',transform:'translateY(-50%)'}:type==='LED'?{right:nw+8,top:'50%',transform:'translateY(-50%)'}:{top:nh+5,left:'50%',transform:'translateX(-50%)',fontSize:'10px'}),
+                <div style={{position:'absolute',whiteSpace:'nowrap',fontSize:'12px',fontWeight:500,color:'#f5f5f5',fontFamily:"'JetBrains Mono', monospace",pointerEvents:'none',userSelect:'none',opacity:hovered?1:0.75,transition:'opacity 0.15s',padding:'4px 8px',background:'rgba(0,0,0,0.6)',borderRadius:'4px',backdropFilter:'blur(2px)',border:'1px solid rgba(255,255,255,0.1)',
+                    ...(isSwitch||isClock?{left:nw+12,top:'50%',transform:'translateY(-50%)'}:type==='LED'?{right:nw+12,top:'50%',transform:'translateY(-50%)'}:{top:nh+8,left:'50%',transform:'translateX(-50%)',fontSize:'11px'}),
                 }}>{label}</div>
             )}
 
             {}
             {isClock&&(
-                <div style={{position:'absolute',top:nh+4,left:'50%',transform:'translateX(-50%)',fontSize:9,fontFamily:'monospace',fontWeight:700,color:hovered?'#89b4fa':'#45475a',whiteSpace:'nowrap',pointerEvents:'none',transition:'color 0.15s'}}>
+                <div style={{position:'absolute',top:nh+4,left:'50%',transform:'translateX(-50%)',fontSize:10,fontFamily:"'JetBrains Mono', monospace",fontWeight:700,color:'#f5f5f5',whiteSpace:'nowrap',pointerEvents:'none',transition:'opacity 0.15s',opacity:hovered?1:0.6,padding:'2px 6px',background:'rgba(0,0,0,0.5)',borderRadius:'3px',border:'1px solid rgba(255,255,255,0.05)'}}>
                     {(hz??1)>=1?`${hz??1} Hz`:`${(hz??1).toFixed(1)} Hz`}
                 </div>
             )}
@@ -181,6 +181,6 @@ const Node = memo(function Node({
     prev.pauseTracking      === next.pauseTracking      &&
     prev.resumeTracking     === next.resumeTracking     &&
     prev.saveSnapshot       === next.saveSnapshot
-);
+); 
 
 export default Node;  

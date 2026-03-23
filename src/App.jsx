@@ -529,7 +529,7 @@ function ThemeProvider({ children }) {
   const { settings } = useSettings();
   useEffect(() => {
     document.documentElement.className = `theme-${settings.theme}`;
-  }, [settings.theme]);
+  }, [settings.theme]); 
   return <>{children}</>;
 }
 

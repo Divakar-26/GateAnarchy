@@ -156,7 +156,7 @@ export function propagate(nodes, wires) {
             });
         }
     });
-
+ 
     let dirty = false;
     const result = nodes.map(orig => {
         const u = nodeMap.get(orig.id);

@@ -747,4 +747,4 @@ function TruthTablePanel({ type, onClose }) {
     );
 }
 
-export default TruthTablePanel;
+export default TruthTablePanel; 

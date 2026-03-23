@@ -19,6 +19,10 @@ export function getPinPosition(node, pin, isOutput) {
     const { width, height } = getNodeSize(node.type, cfg.inputs, cfg.outputs);
     const total = isOutput ? cfg.outputs : cfg.inputs;
     const y = node.y + pinY(pin.index, total, height);
+    
+    // Wires connect exactly at pin centers
+    // Pin centers are at the node edges (pins extend inward and outward equally)
     const x = isOutput ? node.x + width : node.x;
+    
     return { x, y };
 }   

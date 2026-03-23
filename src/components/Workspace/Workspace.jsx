@@ -158,7 +158,13 @@ function Workspace({
     const [ledDecimalRegion,setLedDecimalRegion]   = useState(null);
     const [ledDecimalPanelOpen,setLedDecimalPanelOpen] = useState(false);
     const [ledHoveredNodeId,setLedHoveredNodeId]  = useState(null);
+    const [regionEditId,setRegionEditId]           = useState(null);
+    const [regionEditLabel,setRegionEditLabel]     = useState("");
+    const [quickConnectMode,setQuickConnectMode]   = useState(false);
+    const [quickConnectPin,setQuickConnectPin]     = useState(null);
     const labelInputRef = useRef(null);
+    const regionLabelInputRef = useRef(null);
+    const spaceHeldRef = useRef(false);
     const {settings} = useSettings();
 
     useEffect(() => {
@@ -352,23 +358,215 @@ function Workspace({
         });
     },[]);
 
-    const handlePinClick = useCallback((pin)=>{
+    const deleteWire = useCallback((wireId)=>{
+        setWires(prev=>prev.filter(w=>w.id!==wireId));
+    },[]);
+
+    const handleAutoWire = useCallback(()=>{
+        const sel = selectedRef.current;
+        if (sel.length < 2) {
+            alert("Select 2+ nodes to auto-wire. Node order matters!");
+            return;
+        }
+
+        const allNodes = nodesRef.current;
+        const selNodes = allNodes.filter(n => sel.includes(n.id));
+        
+        // Separate by type
+        const switches  = selNodes.filter(n => n.type === 'SWITCH').sort((a,b)=>a.y-b.y);
+        const leds      = selNodes.filter(n => n.type === 'LED').sort((a,b)=>a.y-b.y);
+        const circuits  = selNodes.filter(n => 
+            n.type !== 'SWITCH' && n.type !== 'LED' &&
+            n.type !== 'JUNCTION' && n.type !== 'CLOCK'
+        ).sort((a,b)=>a.x-b.x);
+        
+        const newWires = [];
+        const currentWires = wiresRef.current;
+        const gateConfig = {
+            AND: { inputs: 2, outputs: 1 },
+            OR:  { inputs: 2, outputs: 1 },
+            NOT: { inputs: 1, outputs: 1 },
+        };
+
+        // Auto-chain circuits left-to-right
+        for (let i = 0; i < circuits.length - 1; i++) {
+            const from = circuits[i];
+            const to = circuits[i + 1];
+            const cfg = gateConfig[from.type] || { outputs: 1 };
+            
+            if (cfg.outputs > 0) {
+                const already = currentWires.some(w => 
+                    w.from.nodeId === from.id && w.from.index === 0 &&
+                    w.to.nodeId === to.id && w.to.index === 0
+                );
+                if (!already) {
+                    newWires.push({
+                        id: wid(),
+                        from: {nodeId: from.id, index: 0, total: cfg.outputs},
+                        to: {nodeId: to.id, index: 0, total: 2},
+                    });
+                }
+            }
+        }
+
+        // Connect switches to first circuit input
+        if (circuits.length > 0) {
+            const firstCircuit = circuits[0];
+            const cfg = gateConfig[firstCircuit.type] || { inputs: 2 };
+            switches.forEach((sw, i) => {
+                if (i >= cfg.inputs) return;
+                const already = currentWires.some(w => 
+                    w.from.nodeId === sw.id && w.to.nodeId === firstCircuit.id && w.to.index === i
+                );
+                if (!already) {
+                    newWires.push({
+                        id: wid(),
+                        from: {nodeId: sw.id, index: 0, total: 1},
+                        to: {nodeId: firstCircuit.id, index: i, total: cfg.inputs},
+                    });
+                }
+            });
+        }
+
+        // Connect last circuit output to LEDs
+        if (circuits.length > 0) {
+            const lastCircuit = circuits[circuits.length - 1];
+            const cfg = gateConfig[lastCircuit.type] || { outputs: 1 };
+            leds.forEach((led, i) => {
+                if (i >= cfg.outputs) return;
+                const already = currentWires.some(w => 
+                    w.from.nodeId === lastCircuit.id && w.from.index === i && w.to.nodeId === led.id
+                );
+                if (!already) {
+                    newWires.push({
+                        id: wid(),
+                        from: {nodeId: lastCircuit.id, index: i, total: cfg.outputs},
+                        to: {nodeId: led.id, index: 0, total: 1},
+                    });
+                }
+            });
+        }
+
+        // Direct switch to LED connections if no circuits
+        if (circuits.length === 0 && switches.length > 0 && leds.length > 0) {
+            switches.forEach((sw, i) => {
+                if (i >= leds.length) return;
+                const already = currentWires.some(w => 
+                    w.from.nodeId === sw.id && w.to.nodeId === leds[i].id
+                );
+                if (!already) {
+                    newWires.push({
+                        id: wid(),
+                        from: {nodeId: sw.id, index: 0, total: 1},
+                        to: {nodeId: leds[i].id, index: 0, total: 1},
+                    });
+                }
+            });
+        }
+
+        if (newWires.length > 0) {
+            setWires(prev => [...prev, ...newWires]);
+        }
+    }, []);
+
+    const handleQuickConnectPin = useCallback((pin) => {
+        if (!quickConnectMode) return;
+
+        // If no pin selected, select this one
+        if (!quickConnectPin) {
+            setQuickConnectPin(pin);
+            return;
+        }
+
+        // If same type pins, can't connect
+        if (pin.type === quickConnectPin.type) {
+            setQuickConnectPin(null);
+            return;
+        }
+
+        // Determine output and input intelligently
+        let fromPin = quickConnectPin;
+        let toPin = pin;
+
+        // If stored pin is input and new pin is output, reverse them
+        if (quickConnectPin.type === "input" && pin.type === "output") {
+            fromPin = pin;
+            toPin = quickConnectPin;
+        }
+
+        // Connect them
+        const already = wiresRef.current.some(w => 
+            w.to.nodeId === toPin.nodeId && w.to.index === toPin.index
+        );
+        if (!already) {
+            setWires(prev => [...prev, {
+                id: wid(),
+                from: fromPin,
+                to: {nodeId: toPin.nodeId, index: toPin.index, total: toPin.total},
+            }]);
+        }
+        setQuickConnectPin(null);
+    }, [quickConnectMode, quickConnectPin]);
+
+    const handlePinClick = useCallback((pin, event)=>{
         if(toolRef.current==="erase")return;
+        
+        // Quick-Connect Mode
+        if(quickConnectMode){
+            handleQuickConnectPin(pin);
+            return;
+        }
+        
+        // Shift+Click: Quick connect from output to input
+        if(event?.shiftKey&&!activeWireRef.current){
+            if(pin.type==="output"){
+                setActiveWire(pin);
+                return;
+            } else if(pin.type==="input"){
+                // This shouldn't normally happen as we'd set activeWire first
+                return;
+            }
+        }
+        
+        // Normal wire drawing flow - allow starting from ANY pin type
         const aw=activeWireRef.current;
-        if(!aw){if(pin.type==="output")setActiveWire(pin);return;}
-        if(aw.type==="output"&&pin.type==="input"){
-            const already=wiresRef.current.some(w=>w.to.nodeId===pin.nodeId&&w.to.index===pin.index);
+        
+        // Start wire from any pin
+        if(!aw){
+            setActiveWire(pin);
+            return;
+        }
+        
+        // Intelligent connection: determine output and input
+        let fromPin = aw;
+        let toPin = pin;
+        
+        // If both are same type, can't connect
+        if(aw.type===pin.type){
+            cancelWire();
+            return;
+        }
+        
+        // If active wire is input and new pin is output, reverse them
+        if(aw.type==="input"&&pin.type==="output"){
+            fromPin = pin;
+            toPin = aw;
+        }
+        
+        // Now fromPin is output, toPin is input
+        if(fromPin.type==="output"&&toPin.type==="input"){
+            const already=wiresRef.current.some(w=>w.to.nodeId===toPin.nodeId&&w.to.index===toPin.index);
             if(!already){
                 setWires(prev=>[...prev,{
                     id:wid(),
-                    from:{nodeId:aw.nodeId,index:aw.index,total:aw.total},
-                    to:{nodeId:pin.nodeId,index:pin.index,total:pin.total},
+                    from:{nodeId:fromPin.nodeId,index:fromPin.index,total:fromPin.total},
+                    to:{nodeId:toPin.nodeId,index:toPin.index,total:toPin.total},
                     waypoints:activeWireWaypoints.length>0?[...activeWireWaypoints]:undefined,
                 }]);
             }
         }
         setActiveWire(null);setActiveWireWaypoints([]);
-    },[activeWireWaypoints]);
+    },[activeWireWaypoints,quickConnectMode,handleQuickConnectPin]);
 
     const eraseNode = useCallback((id)=>{
         setNodes(prev=>prev.filter(n=>n.id!==id));
@@ -707,10 +905,31 @@ function Workspace({
     
     useEffect(()=>{
         const onKey=(e)=>{
+            if(e.key===" "){e.preventDefault();spaceHeldRef.current=true;if(selectionBox)workspaceRef.current.style.cursor="grab";return;}
             if(document.activeElement.tagName==="INPUT")return;
             const mod=e.ctrlKey||e.metaKey;
-            if(e.key==="Delete"||e.key==="Backspace")handleDeleteSelected();
-            if(e.key==="Escape"){cancelWire();setNodeMenu(null);setRegionMenu(null);setClockConfig(null);setTool("select");onCancelPending?.();setGhostWorldPos(null);setRegionPrompt(null);}
+            if(e.key==="Delete"||e.key==="Backspace"){
+                // Remove last waypoint if drawing wire
+                if(activeWireRef.current&&activeWireWaypoints.length>0){
+                    setActiveWireWaypoints(prev=>prev.slice(0,-1));
+                    return;
+                }
+                // Delete selected nodes/wires
+                handleDeleteSelected();
+            }
+            if(e.key==="Escape"){
+                setQuickConnectMode(false);
+                setQuickConnectPin(null);
+                cancelWire();
+                setNodeMenu(null);
+                setRegionMenu(null);
+                setWireMenu(null);
+                setClockConfig(null);
+                setTool("select");
+                onCancelPending?.();
+                setGhostWorldPos(null);
+                setRegionPrompt(null);
+            }
             if(!mod&&(e.key==="f"||e.key==="F"))fitAll();
             if(!mod&&(e.key==="h"||e.key==="H"))focusOrigin();
             if(mod&&e.key==="c"){e.preventDefault();handleCopy();}
@@ -719,10 +938,29 @@ function Workspace({
             if(mod&&e.key==="a"){e.preventDefault();setSelectedNodes(nodesRef.current.filter(n=>n.type!=="JUNCTION").map(n=>n.id));}
             if(mod&&e.key==="g"){e.preventDefault();if(selectedRef.current.length>=2)setRegionPrompt({nodeIds:[...selectedRef.current],x:window.innerWidth/2,y:window.innerHeight/2});}
             if(!mod&&(e.key==="j"||e.key==="J"))handleJoin();
+            
+            // Quick Connect Mode - Q key
+            if(!mod&&(e.key==="q"||e.key==="Q")){
+                e.preventDefault();
+                setQuickConnectMode(prev => !prev);
+                if(!quickConnectMode) setQuickConnectPin(null);
+                return;
+            }
+            
+            // Auto-Wire Selected - W key
+            if(!mod&&(e.key==="w"||e.key==="W")&&!activeWireRef.current){
+                e.preventDefault();
+                handleAutoWire();
+                return;
+            }
+        };
+        const onKeyUp=(e)=>{
+            if(e.key===" "){spaceHeldRef.current=false;if(selectionBox)workspaceRef.current.style.cursor="crosshair";}
         };
         window.addEventListener("keydown",onKey);
-        return()=>window.removeEventListener("keydown",onKey);
-    },[handleDeleteSelected,cancelWire,fitAll,focusOrigin,handleCopy,handlePaste,handleJoin]);
+        window.addEventListener("keyup",onKeyUp);
+        return()=>{window.removeEventListener("keydown",onKey);window.removeEventListener("keyup",onKeyUp);}
+    },[handleDeleteSelected,cancelWire,fitAll,focusOrigin,handleCopy,handlePaste,handleJoin,activeWireWaypoints,handleAutoWire,quickConnectMode]);
 
     const cursorMap={select:"default",pan:"grab",erase:"crosshair"};
 
@@ -746,11 +984,43 @@ function Workspace({
                 const jId=wid();
                 const centerX=Math.round(wx/snap)*snap,centerY=Math.round(wy/snap)*snap;
                 const jNode={id:jId,type:"JUNCTION",x:centerX-5,y:centerY-5,value:0,label:""};
+                
+                // Calculate relative position along wire to split waypoints correctly
+                const n1=nodesRef.current.find(n=>n.id===hitWire.from.nodeId);
+                const n2=nodesRef.current.find(n=>n.id===hitWire.to.nodeId);
+                const p1=pinPos(n1,hitWire.from,true),p2=pinPos(n2,hitWire.to,false);
+                const wps=hitWire.waypoints||[];
+                
+                let totalDist=0,clickDist=0;
+                let prevPt={x:p1.x,y:p1.y};
+                for(const pt of [...wps,{x:p2.x,y:p2.y}]){
+                    const d=Math.hypot(pt.x-prevPt.x,pt.y-prevPt.y);
+                    const distToClick=Math.hypot(wx-prevPt.x,wy-prevPt.y);
+                    if(clickDist===0&&distToClick>=d) clickDist=totalDist+d;
+                    else if(clickDist===0) clickDist=totalDist+distToClick;
+                    totalDist+=d;
+                    prevPt=pt;
+                }
+                const clickRatio=totalDist>0?clickDist/totalDist:0.5;
+                
+                // Split waypoints proportionally
+                const w1Waypoints=[],w2Waypoints=[];
+                prevPt={x:p1.x,y:p1.y};
+                let accDist=0;
+                for(let i=0;i<wps.length;i++){
+                    const pt=wps[i];
+                    const d=Math.hypot(pt.x-prevPt.x,pt.y-prevPt.y);
+                    accDist+=d;
+                    if(accDist/totalDist<=clickRatio) w1Waypoints.push(pt);
+                    else w2Waypoints.push(pt);
+                    prevPt=pt;
+                }
+                
                 setNodes(prev=>[...prev,jNode]);
                 setWires(prev=>[
                     ...prev.filter(w=>w.id!==hitWire.id),
-                    {id:wid(),from:hitWire.from,to:{nodeId:jId,index:0,total:1},waypoints:undefined},
-                    {id:wid(),from:{nodeId:jId,index:0,total:1},to:hitWire.to,waypoints:hitWire.waypoints?[...hitWire.waypoints]:undefined},
+                    {id:wid(),from:hitWire.from,to:{nodeId:jId,index:0,total:1},waypoints:w1Waypoints.length>0?w1Waypoints:undefined},
+                    {id:wid(),from:{nodeId:jId,index:0,total:1},to:hitWire.to,waypoints:w2Waypoints.length>0?w2Waypoints:undefined},
                 ]);
                 setActiveWire({type:"output",nodeId:jId,index:0,total:1});
                 setActiveWireWaypoints([]);
@@ -759,7 +1029,10 @@ function Workspace({
         }
         if(e.button===0){
             cancelWire();setNodeMenu(null);setRegionMenu(null);setClockConfig(null);setSelectedNodes([]);
-            if(tool==="select")setSelectionBox({startX:sx,startY:sy,endX:sx,endY:sy});
+            if(tool==="select"){
+                setSelectionBox({startX:sx,startY:sy,endX:sx,endY:sy});
+                panStartRef.current={x:sx,y:sy}; // Initialize for pan-while-selecting
+            }
         }
     };
 
@@ -769,6 +1042,15 @@ function Workspace({
         if(isPanningRef.current){
             const cam={x:sx-panStartRef.current.x,y:sy-panStartRef.current.y,zoom:cameraRef.current.zoom};
             applyCameraDOM(cam);
+            return;
+        }
+        // Allow panning while selecting if Space is held
+        if(spaceHeldRef.current&&selectionBox){
+            // Pan instead of updating selection box
+            const dx=sx-panStartRef.current.x,dy=sy-panStartRef.current.y;
+            const cam={x:cameraRef.current.x+dx,y:cameraRef.current.y+dy,zoom:cameraRef.current.zoom};
+            applyCameraDOM(cam);
+            panStartRef.current={x:sx,y:sy};
             return;
         }
         if(selectionBox)setSelectionBox(prev=>prev?{...prev,endX:sx,endY:sy}:null);
@@ -808,12 +1090,40 @@ function Workspace({
     };
 
     
+    const [wireMenu, setWireMenu] = useState(null);
+
     const handleContextMenu=(e)=>{
         e.preventDefault();
+        const rect=workspaceRef.current.getBoundingClientRect();
+        const sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+        const wp=screenToWorld(sx,sy);
+        
+        // Check if right-clicking on a wire (not currently drawing)
+        if(!activeWireRef.current){
+            const cam=cameraRef.current;
+            const hitWire=findWireAtWorldPoint(wp.x,wp.y,nodesRef.current,wiresRef.current,settings.wireStyle,cam.zoom);
+            if(hitWire){
+                e.stopPropagation();
+                setWireMenu({wireId:hitWire.id,x:e.clientX,y:e.clientY});
+                return;
+            }
+        }
+        
+        // If drawing a wire, add waypoint or show waypoint menu
         if(activeWireRef.current){
-            const rect=workspaceRef.current.getBoundingClientRect();
-            const wp=screenToWorld(e.clientX-rect.left,e.clientY-rect.top);
-            setActiveWireWaypoints(prev=>[...prev,wp]);
+            if(activeWireWaypoints.length>0){
+                // Show menu to add or remove waypoint
+                setWireMenu({
+                    isAddWaypoint:true,
+                    x:e.clientX,
+                    y:e.clientY,
+                    waypoint:wp,
+                    canRemove:activeWireWaypoints.length>0
+                });
+            } else {
+                // Just add waypoint
+                setActiveWireWaypoints(prev=>[...prev,wp]);
+            }
         }
     };
 
@@ -955,25 +1265,29 @@ function Workspace({
                         const b=computeRegionBounds(region.nodeIds);
                         if(!b)return null;
                         const isCompound=!!region.isCompound;
+                        const isLEDDecimal=!!region.isLEDDecimal;
                         return(
                             <div key={region.id} style={{
                                 position:"absolute",left:b.x,top:b.y,width:b.w,height:b.h,
-                                border:isCompound?"2px solid rgba(203,166,247,0.7)":"2px dashed rgba(255,255,255,0.35)",
-                                borderRadius:10,
-                                background:isCompound?"rgba(203,166,247,0.04)":"rgba(255,255,255,0.04)",
+                                border:isCompound?"2px solid rgba(203,166,247,0.8)":isLEDDecimal?"2px dashed rgba(162,155,254,0.6)":"2px dashed rgba(137,180,250,0.5)",
+                                borderRadius:12,
+                                background:isCompound?"rgba(203,166,247,0.06)":isLEDDecimal?"rgba(162,155,254,0.04)":"rgba(137,180,250,0.02)",
                                 boxShadow:isCompound
-                                    ?"inset 0 0 0 1px rgba(203,166,247,0.2),0 0 16px rgba(203,166,247,0.07)"
-                                    :"inset 0 0 0 1px rgba(137,180,250,0.18)",
-                                pointerEvents:"none",boxSizing:"border-box",
+                                    ?"inset 0 0 0 1px rgba(203,166,247,0.25),0 0 20px rgba(203,166,247,0.08)"
+                                    :isLEDDecimal
+                                    ?"inset 0 0 0 1px rgba(162,155,254,0.2),0 0 15px rgba(162,155,254,0.05)"
+                                    :"inset 0 0 0 1px rgba(137,180,250,0.2)",
+                                pointerEvents:"none",boxSizing:"border-box",transition:"all 0.2s",
                             }}>
                                 {}
-                                <div style={{position:"absolute",top:-26,left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,0.72)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:6,padding:"3px 10px",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6,pointerEvents:"auto"}}
+                                <div style={{position:"absolute",top:-28,left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,0.8)",border:`1px solid ${isCompound?"rgba(203,166,247,0.3)":isLEDDecimal?"rgba(162,155,254,0.25)":"rgba(137,180,250,0.2)"}`,borderRadius:7,padding:"4px 12px",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:7,pointerEvents:"auto",backdropFilter:"blur(3px)"}}
                                     onContextMenu={e=>{e.preventDefault();e.stopPropagation();setRegionMenu({regionId:region.id,x:e.clientX,y:e.clientY});}}>
-                                    {isCompound&&<span style={{fontSize:9,fontWeight:700,color:"#cba6f7",background:"rgba(203,166,247,0.15)",borderRadius:3,padding:"1px 5px",letterSpacing:"0.06em"}}>COMPOUND</span>}
-                                    <span style={{fontSize:11,fontWeight:600,color:"#e0e0e0",letterSpacing:"0.04em",userSelect:"none"}}>{region.label}</span>
-                                    <span style={{fontSize:11,color:"#585b70",cursor:"pointer",lineHeight:1}}
+                                    {isCompound&&<span style={{fontSize:8,fontWeight:800,color:"#cba6f7",background:"rgba(203,166,247,0.2)",border:"1px solid rgba(203,166,247,0.3)",borderRadius:3,padding:"2px 6px",letterSpacing:"0.08em"}}>COMPOUND</span>}
+                                    {isLEDDecimal&&<span style={{fontSize:8,fontWeight:800,color:"#a29bfe",background:"rgba(162,155,254,0.2)",border:"1px solid rgba(162,155,254,0.3)",borderRadius:3,padding:"2px 6px",letterSpacing:"0.08em"}}>LED→DECIMAL</span>}
+                                    <span style={{fontSize:11,fontWeight:600,color:"#f5f5f5",letterSpacing:"0.02em",userSelect:"none",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{region.label}</span>
+                                    <span style={{fontSize:11,color:"#6c7086",cursor:"pointer",lineHeight:1,transition:"color 0.15s"}}
                                         onMouseEnter={e=>e.currentTarget.style.color="#f38ba8"}
-                                        onMouseLeave={e=>e.currentTarget.style.color="#585b70"}
+                                        onMouseLeave={e=>e.currentTarget.style.color="#6c7086"}
                                         onMouseDown={e=>{e.stopPropagation();if(setRegions)setRegions(prev=>prev.filter(r=>r.id!==region.id));}}
                                     >✕</span>
                                 </div>
@@ -995,7 +1309,7 @@ function Workspace({
                         {activeWire&&(()=>{
                             const node=nodeMap.get(activeWire.nodeId);
                             if(!node)return null;
-                            const p=pinPos(node,activeWire,true);
+                            const p=pinPos(node,activeWire,activeWire.type==="output");
                             return <Wire x1={p.x} y1={p.y} x2={mousePos.x} y2={mousePos.y} active={false} waypoints={activeWireWaypoints} activeColor={wireActiveColor} inactiveColor={wireInactiveColor} wireStyle={wireStyle}/>;
                         })()}
                         {}
@@ -1147,13 +1461,20 @@ function Workspace({
                 )}
 
                 {selectedNodes.length>1&&!pendingTypes?.length&&(
-                    <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",background:"#1a1a2a",color:"#a6adc8",fontSize:12,padding:"5px 12px",borderRadius:6,border:"1px solid #2a2a3e",pointerEvents:"none",display:"flex",gap:10,whiteSpace:"nowrap"}}>
-                        {selectedNodes.length} selected · Del to delete · Ctrl+C copy · Ctrl+G to group
+                    <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",background:"#1a1a2a",color:"#a6adc8",fontSize:12,padding:"5px 12px",borderRadius:6,border:"1px solid #2a2a3e",pointerEvents:"none",display:"flex",gap:10,whiteSpace:"nowrap",alignItems:"center"}}>
+                        {selectedNodes.length} selected · <span style={{color:"#89b4fa"}}>W to auto-wire</span> · Del to delete · Ctrl+C copy · Ctrl+G to group
                     </div>
                 )}
+                
+                {quickConnectMode&&!activeWire&&(
+                    <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",background:"#1a1a2a",color:"#a6e3a1",fontSize:12,padding:"5px 12px",borderRadius:6,border:"2px solid #a6e3a1",pointerEvents:"none",display:"flex",gap:10,whiteSpace:"nowrap",fontWeight:600}}>
+                        🚀 Quick-Connect Mode {quickConnectPin?`[Output: ${quickConnectPin.nodeId}]`:''} · Click input pin to connect · Q to exit
+                    </div>
+                )}
+                
                 {activeWire&&!pendingTypes?.length&&(
                     <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",background:"#1a1a2a",color:"#6c7086",fontSize:11,padding:"5px 12px",borderRadius:6,border:"1px solid #2a2a3e",pointerEvents:"none"}}>
-                        Right-click to add pivot{activeWireWaypoints.length>0?` · ${activeWireWaypoints.length} pivot${activeWireWaypoints.length>1?'s':''}`:''} · Esc to cancel
+                        Right-click to add pivot{activeWireWaypoints.length>0?` · ${activeWireWaypoints.length} pivot${activeWireWaypoints.length>1?'s':''}`:''}{activeWireWaypoints.length>0?' · Del to remove last pivot':''} · Esc to cancel
                         {compoundPinData.some(d=>d.inputs.length)&&
                             <span style={{color:"#cba6f7",marginLeft:8}}>· click ◉ input pin to connect</span>}
                     </div>
@@ -1170,6 +1491,7 @@ function Workspace({
                                 {node?.type!=="JUNCTION"&&<div style={MN.item} onMouseDown={handleSetLabel}>🏷️ {node?.label?"Edit label":"Add label"}</div>}
                                 {node?.type!=="JUNCTION"&&<div style={MN.item} onMouseDown={handleDuplicateNode}>⧉ Duplicate</div>}
                                 {selectedNodes.length>=2&&<div style={MN.item} onMouseDown={()=>{setRegionPrompt({nodeIds:[...selectedNodes],x:nodeMenu.x,y:nodeMenu.y});setNodeMenu(null);}}>⬜ Group region</div>}
+                                {node&&!["SWITCH","LED","CLOCK","JUNCTION"].includes(node.type)&&<div style={MN.item} onMouseDown={()=>{const ofType=nodes.filter(n=>n.type===node.type).map(n=>n.id);setSelectedNodes(ofType);setNodeMenu(null);}}>🔍 Select all {node.type}</div>}
                                 {(()=>{
                                     const selNs=nodes.filter(n=>selectedNodes.includes(n.id));
                                     const hasCircuit=selNs.some(n=>n.type!=='SWITCH'&&n.type!=='LED'&&n.type!=='JUNCTION'&&n.type!=='CLOCK'&&selectedNodes.includes(n.id));
@@ -1213,7 +1535,28 @@ function Workspace({
                     );
                 })()}
 
-                {}
+                {/* Wire Context Menu */}
+                {wireMenu&&(()=>{
+                    if(wireMenu.isAddWaypoint){
+                        return(
+                            <div style={{position:"fixed",left:wireMenu.x,top:wireMenu.y,background:"#1e1e2e",border:"1px solid #45475a",borderRadius:8,padding:6,minWidth:160,boxShadow:"0 4px 20px rgba(0,0,0,0.5)",zIndex:2000,display:"flex",flexDirection:"column",gap:2}}
+                                onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}>
+                                <div style={{fontSize:12,color:"#a6adc8",padding:"3px 8px",fontWeight:600}}>Waypoint</div>
+                                <div style={{...MN.item,color:"#a6e3a1"}} onMouseDown={()=>{setActiveWireWaypoints(prev=>[...prev,wireMenu.waypoint]);setWireMenu(null);}}>➕ Add pivot</div>
+                                {wireMenu.canRemove&&<div style={{...MN.item,color:"#f38ba8"}} onMouseDown={()=>{setActiveWireWaypoints(prev=>prev.slice(0,-1));setWireMenu(null);}}>➖ Remove last pivot</div>}
+                            </div>
+                        );
+                    }
+                    
+                    return(
+                        <div style={{position:"fixed",left:wireMenu.x,top:wireMenu.y,background:"#1e1e2e",border:"1px solid #45475a",borderRadius:8,padding:6,minWidth:140,boxShadow:"0 4px 20px rgba(0,0,0,0.5)",zIndex:2000,display:"flex",flexDirection:"column",gap:2}}
+                            onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}>
+                            <div style={{fontSize:12,color:"#a6adc8",padding:"3px 8px",fontWeight:600}}>Wire</div>
+                            <div style={{...MN.item,color:"#f38ba8"}} onMouseDown={()=>{deleteWire(wireMenu.wireId);setWireMenu(null);}}>🗑️ Delete wire</div>
+                        </div>
+                    );
+                })()}
+
                 {regionMenu&&(()=>{
                     const region=(regions||[]).find(r=>r.id===regionMenu.regionId);
                     if(!region)return null;
@@ -1252,6 +1595,9 @@ function Workspace({
                             )}
 
                             <div style={{height:1,background:"#313244",margin:"3px 0"}}/>
+                            <div style={MN.item} onMouseDown={()=>{setRegionEditId(regionMenu.regionId);setRegionEditLabel(region.label);setRegionMenu(null);setTimeout(()=>regionLabelInputRef.current?.focus(),50);}}>
+                                🏷️ Rename Region
+                            </div>
                             <div style={{...MN.item,color:"#f38ba8"}} onMouseDown={()=>{
                                 if(setRegions)setRegions(prev=>prev.filter(r=>r.id!==regionMenu.regionId));
                                 setRegionMenu(null);
@@ -1259,7 +1605,34 @@ function Workspace({
                         </div>
                     );
                 })()}
-            </div>
+
+                {}
+                {regionEditId&&(()=>{
+                    const region=(regions||[]).find(r=>r.id===regionEditId);
+                    if(!region)return null;
+                    return(
+                        <div style={{position:"fixed",left:"50%",top:"50%",transform:"translate(-50%,-50%)",background:"#1e1e2e",border:"1px solid #45475a",borderRadius:10,padding:16,minWidth:320,boxShadow:"0 8px 32px rgba(0,0,0,0.6)",zIndex:2001,display:"flex",flexDirection:"column",gap:10}}
+                            onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}>
+                            <div style={{fontSize:14,fontWeight:600,color:"#f5f5f5"}}>Rename Region</div>
+                            <input ref={regionLabelInputRef} value={regionEditLabel}
+                                onChange={e=>setRegionEditLabel(e.target.value)}
+                                onKeyDown={e=>{if(e.key==="Enter"){if(setRegions)setRegions(prev=>prev.map(r=>r.id===regionEditId?{...r,label:regionEditLabel||"Region"}:r));setRegionEditId(null);}if(e.key==="Escape")setRegionEditId(null);}}
+                                placeholder="e.g. XOR Logic"
+                                style={{padding:"10px 12px",borderRadius:6,fontSize:13,border:"1px solid #45475a",background:"#313244",color:"#f5f5f5",outline:"none",width:"100%",boxSizing:"border-box"}}
+                            />
+                            <div style={{display:"flex",gap:8,marginTop:4}}>
+                                <button onMouseDown={()=>setRegionEditId(null)} style={{flex:1,padding:"8px 12px",borderRadius:6,fontSize:12,border:"1px solid #45475a",background:"#313244",color:"#cdd6f4",cursor:"pointer",fontWeight:500,transition:"all 0.15s"}}>
+                                    Cancel
+                                </button>
+                                <button onMouseDown={()=>{if(setRegions)setRegions(prev=>prev.map(r=>r.id===regionEditId?{...r,label:regionEditLabel||"Region"}:r));setRegionEditId(null);}} style={{flex:1,padding:"8px 12px",borderRadius:6,fontSize:12,border:"none",background:"#89b4fa",color:"#1e1e2e",cursor:"pointer",fontWeight:600,transition:"all 0.15s"}}>
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                </div>
 
             {pendingTypes?.length>0&&(
                 <>

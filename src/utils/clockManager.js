@@ -11,7 +11,7 @@ export function setClockChangeHandler(fn) {
 
 export function syncClocks(nodes) {
     const clockNodes = nodes.filter(n => n.type === "CLOCK");
-    const liveIds    = new Set(clockNodes.map(n => n.id));
+    const liveIds    = new Set(clockNodes.map(n => n.id)); 
 
     for (const id of [...timers.keys()]) {
         if (!liveIds.has(id)) {

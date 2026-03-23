@@ -11,7 +11,7 @@ const Wire = memo(function Wire({ x1, y1, x2, y2, active, waypoints=[], activeCo
     } else {
         const dx=x2-x1, s=Math.max(Math.abs(dx)*0.6,60);
         path=`M ${x1} ${y1} C ${x1+s} ${y1}, ${x2-s} ${y2}, ${x2} ${y2}`;
-    }
+    } 
 
     return (
         <g>

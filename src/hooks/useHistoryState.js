@@ -11,7 +11,7 @@ export function useHistoryState(nodes, setNodes, wires, setWires, regions, setRe
     useEffect(() => {
         setStateChangeHandler((state) => {
             if (state) {
-                setNodes(state.nodes || []);
+                setNodes(state.nodes || []); 
                 setWires(state.wires || []);
                 setRegions(state.regions || []);
                 // Update lastStateRef so next change detection works correctly

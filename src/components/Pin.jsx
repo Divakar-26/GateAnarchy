@@ -5,11 +5,9 @@ function Pin({ type, index, total, nodeHeight, nodeId, onPinClick, label }) {
     const [hovered, setHovered] = useState(false);
 
     const spacing = nodeHeight / (total + 1);
-    const topPx   = spacing * (index + 1);
+    const topPx = spacing * (index + 1);
 
-    const handleStart = (e) => { e.stopPropagation(); if (type === "output") onPinClick({ nodeId, type, index, total }); };
-    const handleEnd   = (e) => { e.stopPropagation(); if (type === "input")  onPinClick({ nodeId, type, index, total }); };
- 
+    const handleClick = (e) => { e.stopPropagation(); onPinClick({ nodeId, type, index, total }, e); };
     return (
         <div
             style={{
@@ -25,8 +23,7 @@ function Pin({ type, index, total, nodeHeight, nodeId, onPinClick, label }) {
         >
             <div
                 className={`pin pin-${type}`}
-                onMouseDown={handleStart}
-                onMouseUp={handleEnd}
+                onMouseDown={handleClick}
             />
             {label && (
                 <div style={{
@@ -48,4 +45,4 @@ function Pin({ type, index, total, nodeHeight, nodeId, onPinClick, label }) {
     );
 }
 
-export default Pin;   
+export default Pin;    

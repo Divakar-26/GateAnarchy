@@ -13,7 +13,7 @@ export function isWireInViewport(p1, p2, camera, zoom, width, height) {
     const y1 = (p1.y * zoom) + camera.y;
     const x2 = (p2.x * zoom) + camera.x;
     const y2 = (p2.y * zoom) + camera.y;
-    
+     
     const minX = Math.min(x1, x2) - 50;
     const maxX = Math.max(x1, x2) + 50;
     const minY = Math.min(y1, y2) - 50;

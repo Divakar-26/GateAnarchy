@@ -46,7 +46,7 @@ function ColorPicker({ value, onChange }) {
         border: "3px solid #000",
         cursor: "pointer",
         boxShadow: "2px 2px 0 rgba(0,0,0,0.2)", 
-        transition: "background 0.3s ease",
+        transition: "background 0.3s ease", 
       }} />
       <input
         type="color" 

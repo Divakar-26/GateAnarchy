@@ -6,7 +6,7 @@ const FOLDERS = [
     { key: "sequential", label: "Sequential", items: ["CLOCK"] },
     { key: "outputs",    label: "Outputs",    items: ["LED"] },
     { key: "gates",      label: "Gates",      items: ["AND", "OR", "NOT"] },
-];
+]; 
 
 function Folder({ label, children, defaultOpen = true }) {
     const [open, setOpen] = useState(defaultOpen);
