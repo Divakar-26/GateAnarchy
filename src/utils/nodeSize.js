@@ -5,6 +5,8 @@ const MIN_HEIGHT  = 40;
 const CHAR_WIDTH  = 8;
 const LABEL_PAD   = 44;
 
+
+
 export function getNodeSize(type, inputCount, outputCount) {
     const isIO = type === "SWITCH" || type === "LED";
     if (isIO) return { width: 28, height: 28 };

@@ -4,6 +4,7 @@ import '../../styles/workspace.css';
 import Node from "../Node";
 import Wire from "../Wire";
 import { getPinPosition } from "../../utils/pinPosition";
+import { getVisibleNodes, getVisibleWires } from "../../utils/viewportCulling";
 import { propagate } from "./propagate";
 import TruthTablePanel from "./TruthTablePanel";
 import ClockConfig from "./ClockConfig";
@@ -138,6 +139,7 @@ function Workspace({
     useEffect(()=>{regionsRef.current=regions;},[regions]);
 
     const [camera,setCamera]                       = useState({x:0,y:0,zoom:1});
+    const [viewportSize,setViewportSize]           = useState({w:window.innerWidth,h:window.innerHeight});
     const [tool,setTool]                           = useState("select");
     const [activeWire,setActiveWire]               = useState(null);
     const [activeWireWaypoints,setActiveWireWaypoints] = useState([]);
@@ -155,6 +157,12 @@ function Workspace({
     const [ledHoveredNodeId,setLedHoveredNodeId]  = useState(null);
     const labelInputRef = useRef(null);
     const {settings} = useSettings();
+
+    useEffect(() => {
+        const handleResize = () => setViewportSize({w: window.innerWidth, h: window.innerHeight});
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(()=>{activeWireRef.current=activeWire;},[activeWire]);
     useEffect(()=>{selectedRef.current=selectedNodes;});
@@ -194,6 +202,27 @@ function Workspace({
         return m;
     },[nodes,settings]);
 
+    const visibleNodes = useMemo(()=>
+        nodes.filter(n => !compoundHiddenIds.has(n.id) && 
+            ((n.x * camera.zoom) + camera.x + 80 * camera.zoom > 0 &&
+             (n.x * camera.zoom) + camera.x < viewportSize.w &&
+             (n.y * camera.zoom) + camera.y + 40 * camera.zoom > 0 &&
+             (n.y * camera.zoom) + camera.y < viewportSize.h))
+    ,[nodes, compoundHiddenIds, camera, viewportSize]);
+
+    const visibleWires = useMemo(()=>{
+        const filtered = wires.filter(w => !compoundHiddenIds.has(w.from.nodeId) && !compoundHiddenIds.has(w.to.nodeId));
+        return filtered.filter(w => {
+            const n1 = nodeMap.get(w.from.nodeId), n2 = nodeMap.get(w.to.nodeId);
+            if (!n1 || !n2) return false;
+            const p1x = (n1.x * camera.zoom) + camera.x, p1y = (n1.y * camera.zoom) + camera.y;
+            const p2x = (n2.x * camera.zoom) + camera.x, p2y = (n2.y * camera.zoom) + camera.y;
+            const minX = Math.min(p1x, p2x) - 50, maxX = Math.max(p1x, p2x) + 50;
+            const minY = Math.min(p1y, p2y) - 50, maxY = Math.max(p1y, p2y) + 50;
+            return !(maxX < 0 || minX > viewportSize.w || maxY < 0 || minY > viewportSize.h);
+        });
+    },[wires, compoundHiddenIds, nodeMap, camera, viewportSize]);
+
     const ledDecimalRegionObj = useMemo(() => 
         (regions || []).find(r => r.id === ledDecimalRegion) || null,
         [regions, ledDecimalRegion]
@@ -202,12 +231,19 @@ function Workspace({
     const ledDecimalConverterHookData = useLEDDecimalConverter(nodes, ledDecimalRegionObj);
 
     
-    const prevSigRef = useRef('');
+    const prevSigRef = useRef(0);
     useEffect(()=>{
-        const nodeSig=nodes.map(n=>`${n.id}:${n.value}:${(n.outputs||[]).join(',')}`).join('|');
-        const wireSig=wires.map(w=>`${w.from.nodeId}[${w.from.index}]->${w.to.nodeId}[${w.to.index}]`).join('|');
-        const sig=nodeSig+'~'+wireSig;
-        if(sig===prevSigRef.current)return;
+        // Fast hash-based dirty checking instead of string building
+        let hash = 0;
+        for(let i=0;i<nodes.length;i++){
+            const n=nodes[i];
+            hash^=(n.id*33)^(n.value<<2)^((n.outputs?.length||0)<<4);
+        }
+        for(let i=0;i<wires.length;i++){
+            hash^=(wires[i].from.nodeId<<1)^(wires[i].to.nodeId<<3);
+        }
+        if(hash===prevSigRef.current)return;
+        
         const newNodes=propagate(nodes,wires);
         let valOutChanged=false, stateOnlyChanged=false;
         const merged=nodes.map(orig=>{
@@ -220,9 +256,9 @@ function Workspace({
             if(!vEq||!oEq)valOutChanged=true; else stateOnlyChanged=true;
             return n;
         });
-        if(valOutChanged){prevSigRef.current='';setNodes(merged);}
+        if(valOutChanged){prevSigRef.current=0;setNodes(merged);}
         else if(stateOnlyChanged){setNodes(merged);}
-        else prevSigRef.current=sig;
+        else prevSigRef.current=hash;
     },[nodes,wires]);
 
     
@@ -238,7 +274,13 @@ function Workspace({
     },[]);
     useEffect(()=>{syncClocks(nodes);},[nodes]);
 
-    
+    useEffect(()=>{
+        if(ledDecimalRegion && (!ledDecimalRegionObj || !ledDecimalRegionObj.nodeIds || ledDecimalRegionObj.nodeIds.length === 0)){
+            setLedDecimalRegion(null);
+            setLedDecimalPanelOpen(false);
+        }
+    },[ledDecimalRegion, ledDecimalRegionObj]);
+
     const applyCameraDOM = (cam) => {
         cameraRef.current = cam;
         if (cameraLayerRef.current)
@@ -329,6 +371,22 @@ function Workspace({
         setNodes(prev=>prev.filter(n=>n.id!==id));
         setWires(prev=>prev.filter(w=>w.from.nodeId!==id&&w.to.nodeId!==id));
         setSelectedNodes(prev=>prev.filter(nid=>nid!==id));
+        if(ledDecimalRegion){
+            setRegions(prev=>{
+                const r=prev.find(rr=>rr.id===ledDecimalRegion);
+                if(r&&r.nodeIds.includes(id)){
+                    const remainingNodeIds=r.nodeIds.filter(nid=>nid!==id);
+                    if(remainingNodeIds.length===0){
+                        setLedDecimalRegion(null);
+                        setLedDecimalPanelOpen(false);
+                        return prev.filter(rr=>rr.id!==r.id);
+                    }else{
+                        return prev.map(rr=>rr.id===ledDecimalRegion?{...rr,nodeIds:remainingNodeIds}:rr);
+                    }
+                }
+                return prev;
+            });
+        }
     },[]);
 
     const onSelectNode = useCallback((id)=>{setSelectionBox(null);setSelectedNodes([id]);},[]);
@@ -346,6 +404,22 @@ function Workspace({
         setNodes(prev=>prev.filter(n=>!selSet.has(n.id)));
         setWires(prev=>prev.filter(w=>!selSet.has(w.from.nodeId)&&!selSet.has(w.to.nodeId)));
         setSelectedNodes([]);
+        if(ledDecimalRegion){
+            setRegions(prev=>{
+                const r=prev.find(rr=>rr.id===ledDecimalRegion);
+                if(r){
+                    const remainingNodeIds=r.nodeIds.filter(nid=>!selSet.has(nid));
+                    if(remainingNodeIds.length===0){
+                        setLedDecimalRegion(null);
+                        setLedDecimalPanelOpen(false);
+                        return prev.filter(rr=>rr.id!==r.id);
+                    }else if(remainingNodeIds.length<r.nodeIds.length){
+                        return prev.map(rr=>rr.id===ledDecimalRegion?{...rr,nodeIds:remainingNodeIds}:rr);
+                    }
+                }
+                return prev;
+            });
+        }
     },[]);
 
     const handleBitToggle = useCallback((nodeId,bitIndex)=>{
@@ -599,7 +673,8 @@ function Workspace({
                 if(r&&r.nodeIds.includes(id)){
                     if(r.nodeIds.length===1){
                         setLedDecimalRegion(null);
-                        return prev.filter(rr=>rr.id!==ledDecimalRegion);
+                        setLedDecimalPanelOpen(false);
+                        return prev.filter(rr=>rr.id!==r.id);
                     }else{
                         return prev.map(rr=>rr.id===ledDecimalRegion?{...rr,nodeIds:rr.nodeIds.filter(nid=>nid!==id)}:rr);
                     }
@@ -903,7 +978,7 @@ function Workspace({
                     {}
                     <svg className="wire-layer" style={{pointerEvents:"none"}}>
                         {}
-                        {wires.filter(w=>!compoundHiddenIds.has(w.from.nodeId)&&!compoundHiddenIds.has(w.to.nodeId)).map(wire=>{
+                        {visibleWires.map(wire=>{
                             const n1=nodeMap.get(wire.from.nodeId),n2=nodeMap.get(wire.to.nodeId);
                             if(!n1||!n2)return null;
                             const p1=pinPos(n1,wire.from,true),p2=pinPos(n2,wire.to,false);
@@ -967,7 +1042,7 @@ function Workspace({
                     )}
 
                     {}
-                    {nodes.filter(n=>!compoundHiddenIds.has(n.id)).map(node=>(
+                    {visibleNodes.map(node=>(
                         <Node
                             key={node.id}
                             id={node.id} type={node.type} x={node.x} y={node.y}
