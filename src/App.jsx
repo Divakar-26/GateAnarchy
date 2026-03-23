@@ -5,10 +5,9 @@ import { loadSavedComponents, registerComponent, customComponentRegistry } from 
 import { SettingsProvider, useSettings } from "./configs/SettingsContext.js";
 import SettingsPanel from "./components/Workspace/SettingsPanel";
 
-
 let _uid = 100;
 const uid = () => ++_uid;
- 
+
 const makePlayground = (name = "Playground 1") => ({
   id: uid(),
   name,
@@ -56,7 +55,6 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Yes", dang
 
 function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleClose, onSettings }) {
   const [tabMenu, setTabMenu] = useState(null);
-
   const closeMenu = () => setTabMenu(null);
 
   return (
@@ -66,50 +64,38 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
         background: "var(--secondary-bg)", borderBottom: "3px solid #000",
         height: 40, flexShrink: 0, overflowX: "auto", overflowY: "hidden",
         transition: "background 0.3s ease",
-      }}
-        onClick={closeMenu}
-      >
+      }} onClick={closeMenu}>
         {tabs.map(tab => {
           const active = tab.id === activeId;
           return (
-            <div
-              key={tab.id}
+            <div key={tab.id}
               onClick={() => { onSelect(tab.id); closeMenu(); }}
-              onContextMenu={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                setTabMenu({ tabId: tab.id, x: e.clientX, y: e.clientY });
-              }}
+              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setTabMenu({ tabId: tab.id, x: e.clientX, y: e.clientY }); }}
               onMouseDown={e => { if (e.button === 1) { e.preventDefault(); onMiddleClose(tab.id); } }}
               title="Right-click to rename · Middle-click to close"
               style={{
                 display: "flex", alignItems: "center", gap: 5,
-                padding: "0 12px 0 15px",
-                minWidth: 90, maxWidth: 170,
+                padding: "0 12px 0 15px", minWidth: 90, maxWidth: 170,
                 cursor: "pointer", flexShrink: 0,
                 background: active ? "var(--primary-light)" : "var(--primary-bg)",
                 borderRight: "2px solid #000",
                 borderBottom: active ? "3px solid var(--primary-dark)" : "3px solid transparent",
-                userSelect: "none",
-                fontWeight: 700,
+                userSelect: "none", fontWeight: 700,
                 transition: "background 0.3s ease, border-bottom 0.3s ease",
-              }}
-            >
+              }}>
               <span style={{
                 flex: 1, overflow: "hidden", textOverflow: "ellipsis",
                 whiteSpace: "nowrap", fontSize: 12,
                 color: active ? "#000" : "var(--primary-fg)",
-                fontWeight: active ? 900 : 700,
-                textTransform: "uppercase",
+                fontWeight: active ? 900 : 700, textTransform: "uppercase",
                 transition: "color 0.3s ease",
               }}>
                 {tab.dirty ? <span style={{ color: "var(--primary-dark)", marginRight: 2, fontSize: 14 }}>●</span> : null}
                 {tab.name}
               </span>
               {tabs.length > 1 && (
-                <span
-                  onClick={e => { e.stopPropagation(); closeMenu(); onClose(tab.id); }}
-                  style={{ color: active ? "#000" : "var(--primary-fg)", fontSize: 14, lineHeight: 1, padding: "1px 1px", borderRadius: 0, flexShrink: 0, cursor: "pointer", fontWeight: 900 }}
+                <span onClick={e => { e.stopPropagation(); closeMenu(); onClose(tab.id); }}
+                  style={{ color: active ? "#000" : "var(--primary-fg)", fontSize: 14, lineHeight: 1, padding: "1px 1px", flexShrink: 0, cursor: "pointer", fontWeight: 900 }}
                   onMouseEnter={e => e.currentTarget.style.color = "var(--primary-dark)"}
                   onMouseLeave={e => e.currentTarget.style.color = active ? "#000" : "var(--primary-fg)"}
                 >X</span>
@@ -117,38 +103,28 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
             </div>
           );
         })}
-
         <button onClick={() => { onAdd(); closeMenu(); }} title="New playground"
           style={{ background: "transparent", border: "none", color: "var(--primary-light)", cursor: "pointer", fontSize: 20, padding: "0 12px", lineHeight: 1, flexShrink: 0, fontWeight: 900 }}
           onMouseEnter={e => e.currentTarget.style.color = "var(--primary-dark)"}
           onMouseLeave={e => e.currentTarget.style.color = "var(--primary-light)"}
         >+</button>
-
         <div style={{ flex: 1 }} />
-
         <button onClick={onSettings} title="Settings"
           style={{ background: "transparent", border: "none", color: "var(--secondary-fg)", cursor: "pointer", fontSize: 16, padding: "0 12px", lineHeight: 1, flexShrink: 0, transition: "color 0.12s", fontWeight: 700 }}
           onMouseEnter={e => e.currentTarget.style.color = "var(--primary-light)"}
           onMouseLeave={e => e.currentTarget.style.color = "var(--secondary-fg)"}
         >⚙</button>
       </div>
-
-      {/* Tab right-click context menu */}
       {tabMenu && (
-        <div
-          style={{ ...S.contextMenu, left: tabMenu.x, top: tabMenu.y }}
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <div style={S.menuItem} onClick={() => {
-            const tab = tabs.find(t => t.id === tabMenu.tabId);
-            if (tab) onRename(tab.id, tab.name);
-            closeMenu();
-          }} onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="translate(-2px, -2px)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}} onMouseLeave={e => {e.target.style.background="var(--secondary-fg)"; e.target.style.transform="none"; e.target.style.boxShadow="none"}}>✏️ RENAME</div>
+        <div style={{ ...S.contextMenu, left: tabMenu.x, top: tabMenu.y }}
+          onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+          <div style={S.menuItem} onClick={() => { const tab = tabs.find(t => t.id === tabMenu.tabId); if (tab) onRename(tab.id, tab.name); closeMenu(); }}
+            onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="translate(-2px, -2px)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}}
+            onMouseLeave={e => {e.target.style.background="var(--secondary-fg)"; e.target.style.transform="none"; e.target.style.boxShadow="none"}}>✏️ RENAME</div>
           {tabs.length > 1 && (
-            <div style={{ ...S.menuItem, background: "var(--primary-dark)" }} onClick={() => {
-              onClose(tabMenu.tabId); closeMenu();
-            }} onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="translate(-2px, -2px)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}} onMouseLeave={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="none"; e.target.style.boxShadow="none"}}>X CLOSE</div>
+            <div style={{ ...S.menuItem, background: "var(--primary-dark)" }} onClick={() => { onClose(tabMenu.tabId); closeMenu(); }}
+              onMouseEnter={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="translate(-2px, -2px)"; e.target.style.boxShadow="3px 3px 0 rgba(0,0,0,0.3)"}}
+              onMouseLeave={e => {e.target.style.background="var(--primary-dark)"; e.target.style.transform="none"; e.target.style.boxShadow="none"}}>X CLOSE</div>
           )}
         </div>
       )}
@@ -163,10 +139,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [savedNames, setSavedNames]     = useState(Object.keys(customComponentRegistry));
 
-  // ── App-level clipboard — shared across all tabs ─────────────────────────
   const clipboardRef = useRef(null);
-
-  // ── Pending placement (ghost placement system) ───────────────────────────
   const [pendingTypes, setPendingTypes] = useState([]);
 
   const requestPlace = (type) => setPendingTypes(prev => [...prev, type]);
@@ -185,23 +158,21 @@ function App() {
 
   const handleCancelPending = () => setPendingTypes([]);
 
-  // ── Save component modal ─────────────────────────────────────────────────
+  // ── Save modal state ─────────────────────────────────────────────────────
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName]           = useState("");
   const [saveError, setSaveError]         = useState("");
+  // Pending inputs/outputs chosen by user when saving
+  const [saveInputIds, setSaveInputIds]   = useState([]);
+  const [saveOutputIds, setSaveOutputIds] = useState([]);
   const saveInputRef = useRef(null);
 
-  // ── Sidebar component menu ───────────────────────────────────────────────
   const [componentMenu, setComponentMenu] = useState(null);
   const renameRef = useRef(null);
-
-  // ── Generic prompts ──────────────────────────────────────────────────────
   const [namePrompt, setNamePrompt]       = useState(null);
   const [confirmPrompt, setConfirmPrompt] = useState(null);
-
   const fileInputRef = useRef(null);
 
-  // ── Active tab helpers ───────────────────────────────────────────────────
   const activeTab = tabs.find(t => t.id === activeId) ?? tabs[0];
   const nodes     = activeTab.nodes;
   const wires     = activeTab.wires;
@@ -219,7 +190,6 @@ function App() {
     t.id === activeId ? { ...t, dirty: true, regions: typeof updater === "function" ? updater(t.regions ?? []) : updater } : t
   ));
 
-  // ── Tab management ───────────────────────────────────────────────────────
   const addTab = () => {
     const tab = makePlayground(`Playground ${tabs.length + 1}`);
     setTabs(prev => [...prev, tab]);
@@ -255,7 +225,6 @@ function App() {
     });
   };
 
-  // ── Export / Import ──────────────────────────────────────────────────────
   const savePlayground = () => {
     setNamePrompt({
       title: "Export playground", defaultValue: activeTab.name, placeholder: "filename", confirmLabel: "Export",
@@ -293,34 +262,71 @@ function App() {
     e.target.value = "";
   };
 
-  // ── Save component ───────────────────────────────────────────────────────
+  // ── Save circuit — accepts ANY node as input/output ──────────────────────
+  //
+  // Rules:
+  //   Inputs  = SWITCH nodes (controllable sources)
+  //   Outputs = LED nodes (observable sinks)
+  //   Fallback: if no SWITCH, use nodes with no incoming wires as inputs
+  //             if no LED,    use nodes with no outgoing wires as outputs
+  //
   const saveCircuit = () => {
     const switches = nodes.filter(n => n.type === "SWITCH");
     const leds     = nodes.filter(n => n.type === "LED");
-    if (!switches.length || !leds.length) {
-      setSaveError("Need at least one SWITCH and one LED.");
-      setShowSaveModal(true); return;
+
+    // Derive fallback inputs: nodes nothing drives
+    const drivenIds = new Set(wires.map(w => w.to.nodeId));
+    const fallbackInputs = nodes.filter(n =>
+      n.type !== "LED" && n.type !== "CLOCK" && n.type !== "JUNCTION" &&
+      !drivenIds.has(n.id)
+    );
+
+    // Derive fallback outputs: nodes that drive nothing
+    const drivingIds = new Set(wires.map(w => w.from.nodeId));
+    const fallbackOutputs = nodes.filter(n =>
+      n.type !== "SWITCH" && n.type !== "CLOCK" && n.type !== "JUNCTION" &&
+      !drivingIds.has(n.id)
+    );
+
+    const effectiveInputs  = switches.length  ? switches  : fallbackInputs;
+    const effectiveOutputs = leds.length       ? leds      : fallbackOutputs;
+
+    if (!effectiveInputs.length && !effectiveOutputs.length) {
+      setSaveError("Circuit needs at least one input or output node.");
+      setSaveInputIds([]);
+      setSaveOutputIds([]);
+      setShowSaveModal(true);
+      return;
     }
-    setSaveError(""); setSaveName("");
+
+    setSaveError("");
+    setSaveName("");
+    setSaveInputIds(effectiveInputs.map(n => n.id));
+    setSaveOutputIds(effectiveOutputs.map(n => n.id));
     setShowSaveModal(true);
     setTimeout(() => saveInputRef.current?.focus(), 50);
   };
 
   const confirmSave = () => {
     if (!saveName.trim()) { setSaveError("Enter a name."); return; }
-    const trimmed  = saveName.trim().toUpperCase().replace(/\s+/g, "_");
-    const switches = nodes.filter(n => n.type === "SWITCH");
-    const leds     = nodes.filter(n => n.type === "LED");
-    registerComponent(trimmed,
-      JSON.parse(JSON.stringify(nodes)), JSON.parse(JSON.stringify(wires)),
-      switches.map(n => ({ nodeId: n.id, pinIndex: 0 })),
-      leds.map(n =>     ({ nodeId: n.id, pinIndex: 0 }))
-    );
-    setSavedNames(Object.keys(customComponentRegistry));
-    setShowSaveModal(false); setSaveName("");
+    const trimmed = saveName.trim().toUpperCase().replace(/\s+/g, "_");
+
+    try {
+      registerComponent(
+        trimmed,
+        JSON.parse(JSON.stringify(nodes)),
+        JSON.parse(JSON.stringify(wires)),
+        saveInputIds.map(id  => ({ nodeId: id,  pinIndex: 0 })),
+        saveOutputIds.map(id => ({ nodeId: id,  pinIndex: 0 }))
+      );
+      setSavedNames(Object.keys(customComponentRegistry));
+      setShowSaveModal(false);
+      setSaveName("");
+    } catch (e) {
+      setSaveError("Save failed: " + (e?.message || String(e)));
+    }
   };
 
-  // ── Sidebar component menu ───────────────────────────────────────────────
   const openComponentMenu = (name, x, y) =>
     setComponentMenu({ name, x, y, mode: "menu", renameValue: name });
 
@@ -328,6 +334,7 @@ function App() {
     setComponentMenu(prev => ({ ...prev, mode: "rename" }));
     setTimeout(() => renameRef.current?.focus(), 50);
   };
+
   const confirmRenameComp = () => {
     const oldName = componentMenu.name;
     const newName = componentMenu.renameValue.trim().toUpperCase().replace(/\s+/g, "_");
@@ -336,7 +343,7 @@ function App() {
     if (comp) {
       delete customComponentRegistry[oldName];
       customComponentRegistry[newName] = { ...comp, name: newName };
-      localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
+      try { localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry)); } catch {}
       setTabs(prev => prev.map(t => ({
         ...t, nodes: t.nodes.map(n => n.type === oldName ? { ...n, type: newName } : n)
       })));
@@ -344,10 +351,11 @@ function App() {
     }
     setComponentMenu(null);
   };
+
   const handleDeleteComp = () => {
     const name = componentMenu.name;
     delete customComponentRegistry[name];
-    localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
+    try { localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry)); } catch {}
     setTabs(prev => prev.map(t => {
       const ids = new Set(t.nodes.filter(n => n.type === name).map(n => n.id));
       return {
@@ -361,107 +369,131 @@ function App() {
     setComponentMenu(null);
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // Helper: get label for a node used as input/output in the save modal
+  const nodeDisplayName = (id) => {
+    const n = nodes.find(x => x.id === id);
+    if (!n) return id;
+    return n.label ? `${n.type} "${n.label}"` : `${n.type} @(${n.x},${n.y})`;
+  };
+
   return (
-      <div style={{ display: "flex", height: "100vh" }} onClick={() => setComponentMenu(null)}>
-        <Sidebar
-          onRequestPlace={requestPlace}
-          onSaveCircuit={saveCircuit}
-          savedNames={savedNames}
-          onRenameComponent={openComponentMenu}
+    <div style={{ display: "flex", height: "100vh" }} onClick={() => setComponentMenu(null)}>
+      <Sidebar
+        onRequestPlace={requestPlace}
+        onSaveCircuit={saveCircuit}
+        savedNames={savedNames}
+        onRenameComponent={openComponentMenu}
+      />
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <TabBar
+          tabs={tabs} activeId={activeId}
+          onSelect={(id) => { setActiveId(id); setPendingTypes([]); }}
+          onAdd={addTab}
+          onRename={renameTab}
+          onClose={closeTab}
+          onMiddleClose={closeTab}
+          onSettings={() => setShowSettings(true)}
         />
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <TabBar
-            tabs={tabs} activeId={activeId}
-            onSelect={(id) => { setActiveId(id); setPendingTypes([]); }}
-            onAdd={addTab}
-            onRename={renameTab}
-            onClose={closeTab}
-            onMiddleClose={closeTab}
-            onSettings={() => setShowSettings(true)}
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+          <Workspace
+            key={activeId}
+            nodes={nodes}   setNodes={setNodes}
+            wires={wires}   setWires={setWires}
+            regions={regions} setRegions={setRegions}
+            pendingTypes={pendingTypes}
+            onPlacePending={handlePlacePending}
+            onCancelPending={handleCancelPending}
+            clipboardRef={clipboardRef}
           />
+          <div style={{ position: "absolute", bottom: 20, left: 20, zIndex: 200, display: "flex", gap: 6 }}>
+            <input ref={fileInputRef} type="file" accept=".json" style={{ display: "none" }} onChange={loadPlayground} />
+            <PlayBtn onClick={savePlayground}>↓ Export</PlayBtn>
+            <PlayBtn onClick={() => fileInputRef.current?.click()}>↑ Import</PlayBtn>
+          </div>
+        </div>
+      </div>
 
-          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-            <Workspace
-              key={activeId}
-              nodes={nodes}   setNodes={setNodes}
-              wires={wires}   setWires={setWires}
-              regions={regions} setRegions={setRegions}
-              pendingTypes={pendingTypes}
-              onPlacePending={handlePlacePending}
-              onCancelPending={handleCancelPending}
-              clipboardRef={clipboardRef}
-            />
-            <div style={{ position: "absolute", bottom: 20, left: 20, zIndex: 200, display: "flex", gap: 6 }}>
-              <input ref={fileInputRef} type="file" accept=".json" style={{ display: "none" }} onChange={loadPlayground} />
-              <PlayBtn onClick={savePlayground}>↓ Export</PlayBtn>
-              <PlayBtn onClick={() => fileInputRef.current?.click()}>↑ Import</PlayBtn>
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+
+      {namePrompt && (
+        <NameModal
+          title={namePrompt.title} defaultValue={namePrompt.defaultValue}
+          placeholder={namePrompt.placeholder} confirmLabel={namePrompt.confirmLabel}
+          onConfirm={namePrompt.onConfirm} onCancel={() => setNamePrompt(null)}
+        />
+      )}
+
+      {confirmPrompt && (
+        <ConfirmModal
+          message={confirmPrompt.message} confirmLabel={confirmPrompt.confirmLabel}
+          danger={confirmPrompt.danger} onConfirm={confirmPrompt.onConfirm}
+          onCancel={() => setConfirmPrompt(null)}
+        />
+      )}
+
+      {/* ── Save Circuit Modal ── */}
+      {showSaveModal && (
+        <div style={S.overlay}>
+          <div style={S.modal} onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: 0, fontSize: 15 }}>Save Circuit</h2>
+
+            {saveError ? (
+              <p style={{ margin: 0, color: "#f38ba8", fontSize: 13 }}>{saveError}</p>
+            ) : (
+              <div style={{ fontSize: 12, color: "#a6adc8", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div>
+                  <span style={{ color: "#89b4fa", fontWeight: 700 }}>Inputs ({saveInputIds.length}):</span>{" "}
+                  {saveInputIds.map(id => nodeDisplayName(id)).join(", ") || "none"}
+                </div>
+                <div>
+                  <span style={{ color: "#a6e3a1", fontWeight: 700 }}>Outputs ({saveOutputIds.length}):</span>{" "}
+                  {saveOutputIds.map(id => nodeDisplayName(id)).join(", ") || "none"}
+                </div>
+                <div style={{ fontSize: 11, color: "#585b70", marginTop: 2 }}>
+                  Uses SWITCH→inputs, LED→outputs. Falls back to undriven/non-driving nodes for sequential circuits.
+                </div>
+              </div>
+            )}
+
+            {!saveError && (
+              <input ref={saveInputRef} value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && confirmSave()}
+                placeholder="e.g. SR_LATCH, D_FF, COUNTER"
+                style={S.input}
+              />
+            )}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => { setShowSaveModal(false); setSaveError(""); }} style={S.btnCancel}>Cancel</button>
+              {!saveError && <button onClick={confirmSave} style={S.btnPrimary}>Save</button>}
             </div>
           </div>
         </div>
+      )}
 
-        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-
-        {namePrompt && (
-          <NameModal
-            title={namePrompt.title} defaultValue={namePrompt.defaultValue}
-            placeholder={namePrompt.placeholder} confirmLabel={namePrompt.confirmLabel}
-            onConfirm={namePrompt.onConfirm} onCancel={() => setNamePrompt(null)}
-          />
-        )}
-
-        {confirmPrompt && (
-          <ConfirmModal
-            message={confirmPrompt.message} confirmLabel={confirmPrompt.confirmLabel}
-            danger={confirmPrompt.danger} onConfirm={confirmPrompt.onConfirm}
-            onCancel={() => setConfirmPrompt(null)}
-          />
-        )}
-
-        {showSaveModal && (
-          <div style={S.overlay}>
-            <div style={S.modal} onClick={e => e.stopPropagation()}>
-              <h2 style={{ margin: 0, fontSize: 15 }}>Save Component</h2>
-              {saveError
-                ? <p style={{ margin: 0, color: "#f38ba8", fontSize: 13 }}>{saveError}</p>
-                : <p style={{ margin: 0, color: "#a6adc8", fontSize: 13 }}>
-                    {nodes.filter(n => n.type === "SWITCH").length} input(s) · {nodes.filter(n => n.type === "LED").length} output(s)
-                  </p>}
-              {!saveError.includes("SWITCH") && (
-                <input ref={saveInputRef} value={saveName}
-                  onChange={e => setSaveName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && confirmSave()}
-                  placeholder="e.g. HALF_ADDER" style={S.input} />
-              )}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button onClick={() => setShowSaveModal(false)} style={S.btnCancel}>Cancel</button>
-                {!saveError.includes("SWITCH") && <button onClick={confirmSave} style={S.btnPrimary}>Save</button>}
-              </div>
+      {componentMenu && (
+        <div style={{ ...S.contextMenu, left: componentMenu.x, top: componentMenu.y }} onClick={e => e.stopPropagation()}>
+          {componentMenu.mode === "menu" ? (<>
+            <div style={S.menuHeader}>📦 {componentMenu.name}</div>
+            <div style={S.menuItem} onClick={handleRenameComp}>✏️ Rename</div>
+            <div style={{ ...S.menuItem, color: "#f38ba8" }} onClick={handleDeleteComp}>🗑️ Delete</div>
+          </>) : (<>
+            <div style={S.menuHeader}>Rename</div>
+            <input ref={renameRef} value={componentMenu.renameValue}
+              onChange={e => setComponentMenu(p => ({ ...p, renameValue: e.target.value }))}
+              onKeyDown={e => { if (e.key === "Enter") confirmRenameComp(); if (e.key === "Escape") setComponentMenu(null); }}
+              style={{ ...S.input, marginBottom: 0 }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button onClick={() => setComponentMenu(null)} style={{ ...S.btnCancel, flex: 1 }}>Cancel</button>
+              <button onClick={confirmRenameComp} style={{ ...S.btnPrimary, flex: 1 }}>OK</button>
             </div>
-          </div>
-        )}
-
-        {componentMenu && (
-          <div style={{ ...S.contextMenu, left: componentMenu.x, top: componentMenu.y }} onClick={e => e.stopPropagation()}>
-            {componentMenu.mode === "menu" ? (<>
-              <div style={S.menuHeader}>📦 {componentMenu.name}</div>
-              <div style={S.menuItem} onClick={handleRenameComp}>✏️ Rename</div>
-              <div style={{ ...S.menuItem, color: "#f38ba8" }} onClick={handleDeleteComp}>🗑️ Delete</div>
-            </>) : (<>
-              <div style={S.menuHeader}>Rename</div>
-              <input ref={renameRef} value={componentMenu.renameValue}
-                onChange={e => setComponentMenu(p => ({ ...p, renameValue: e.target.value }))}
-                onKeyDown={e => { if (e.key === "Enter") confirmRenameComp(); if (e.key === "Escape") setComponentMenu(null); }}
-                style={{ ...S.input, marginBottom: 0 }} />
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <button onClick={() => setComponentMenu(null)} style={{ ...S.btnCancel, flex: 1 }}>Cancel</button>
-                <button onClick={confirmRenameComp} style={{ ...S.btnPrimary, flex: 1 }}>OK</button>
-              </div>
-            </>)}
-          </div>
-        )}
-      </div>
+          </>)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -482,7 +514,7 @@ function PlayBtn({ onClick, children }) {
 
 const S = {
   overlay:     { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000 },
-  modal:       { background: "var(--secondary-bg)", color: "var(--primary-fg)", borderRadius: 0, padding: "24px 28px", minWidth: 300, border: "4px solid #000", boxShadow: "8px 8px 0 rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", gap: 12, fontFamily: "'Courier New', monospace", transition: "background 0.3s ease, color 0.3s ease" },
+  modal:       { background: "var(--secondary-bg)", color: "var(--primary-fg)", borderRadius: 0, padding: "24px 28px", minWidth: 340, maxWidth: 460, border: "4px solid #000", boxShadow: "8px 8px 0 rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", gap: 12, fontFamily: "'Courier New', monospace", transition: "background 0.3s ease, color 0.3s ease" },
   contextMenu: { position: "fixed", background: "var(--secondary-bg)", border: "3px solid #000", borderRadius: 0, padding: 8, minWidth: 160, boxShadow: "6px 6px 0 rgba(0,0,0,0.4)", zIndex: 4000, display: "flex", flexDirection: "column", gap: 2, fontFamily: "'Courier New', monospace", transition: "background 0.3s ease" },
   menuHeader:  { padding: "8px 10px", fontSize: 12, color: "var(--primary-fg)", borderBottom: "2px solid #000", marginBottom: 4, fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.08em", transition: "color 0.3s ease" },
   menuItem:    { padding: "10px 12px", borderRadius: 0, cursor: "pointer", fontSize: 12, color: "#000", userSelect: "none", background: "var(--secondary-fg)", fontWeight: "700", border: "2px solid #000", transition: "all 0.3s ease", textTransform: "uppercase" },
@@ -492,14 +524,11 @@ const S = {
   btnDanger:   { padding: "10px 16px", borderRadius: 0, border: "3px solid #000", background: "var(--primary-dark)", color: "#000", fontWeight: "900", cursor: "pointer", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", boxShadow: "4px 4px 0 rgba(0,0,0,0.3)", transition: "all 0.3s ease" },
 };
 
-// ── Theme Provider ───────────────────────────────────────────────────────────
 function ThemeProvider({ children }) {
   const { settings } = useSettings();
-  
   useEffect(() => {
     document.documentElement.className = `theme-${settings.theme}`;
   }, [settings.theme]);
-  
   return <>{children}</>;
 }
 

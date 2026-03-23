@@ -27,6 +27,7 @@ const Node = memo(function Node({
     cameraRef,
     workspaceRef, updateNodePosition, onPinClick, onBitToggle,
     selected, onSelect, onContextMenu, cancelWire, eraseMode,
+    isLEDHovered,
 }) {
     const dragStart  = useRef({x:0,y:0});
     const dragOffset = useRef({x:0,y:0});
@@ -102,6 +103,7 @@ const Node = memo(function Node({
                     background:     nodeColor,
                     border:         borderStyle,
                     outline:        eraseMode&&hovered?'2px solid #f38ba8':selected?'2px solid #ffd166':'none',
+                    boxShadow:      type==='LED'&&isLEDHovered?'0 0 12px 3px rgba(255, 200, 87, 0.6)':'none',
                     pointerEvents:  'auto',
                     position:       'relative',
                     display:        'flex',
@@ -162,6 +164,7 @@ const Node = memo(function Node({
     prev.hz        === next.hz        &&
     prev.nodeColor === next.nodeColor &&
     prev.outputs   === next.outputs   &&
+    prev.isLEDHovered === next.isLEDHovered &&
     prev.updateNodePosition === next.updateNodePosition &&
     prev.onPinClick         === next.onPinClick         &&
     prev.onSelect           === next.onSelect           &&

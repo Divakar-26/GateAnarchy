@@ -1,4 +1,3 @@
-
 export const customComponentRegistry = {};
 
 function arrEq(a, b) {
@@ -14,7 +13,6 @@ function readOutput(values, nodeId, outputIndex) {
   return outputIndex === 0 ? (v ?? 0) : 0;
 }
 
-// ── Topological sort (Kahn) ──────────────────────────────────────────────────
 function topoSort(nodeArray, wires) {
   const inDeg = new Map(), adj = new Map();
   nodeArray.forEach(n => { inDeg.set(n.id, 0); adj.set(n.id, []); });
@@ -65,27 +63,55 @@ function hasFeedbackCircuit(nodes, wires, registry) {
   return false;
 }
 
+// ── Handles ALL gate types including NPN ─────────────────────────────────────
 function evalGate(type, ins, registry) {
   switch (type) {
     case "AND":      return [(ins[0] && ins[1]) ? 1 : 0];
     case "OR":       return [(ins[0] || ins[1]) ? 1 : 0];
     case "NOT":      return [ins[0] ? 0 : 1];
+    case "NAND":     return [(ins[0] && ins[1]) ? 0 : 1];
+    case "NOR":      return [(ins[0] || ins[1]) ? 0 : 1];
+    case "XOR":      return [ins[0] !== ins[1] ? 1 : 0];
+    case "XNOR":     return [ins[0] === ins[1] ? 1 : 0];
+    case "NPN":      return [ins[0] === 1 ? (ins[1] ?? 0) : 0];
     case "LED":      return [ins[0] ? 1 : 0];
     case "SWITCH":   return [ins[0] ?? 0];
     case "JUNCTION": return [ins[0] ?? 0];
     default: {
       const comp = registry[type];
       if (!comp) return [0];
-      if (comp.hasFeedback) return new Array(comp.outputCount).fill(0); // placeholder — caller handles live
+      if (comp.hasFeedback) return new Array(comp.outputCount).fill(0);
       if (comp.truthTable) {
         const key = ins.slice(0, comp.inputCount).join("");
         return comp.truthTable[key] ?? new Array(comp.outputCount).fill(0);
       }
-      return [0];
+      return new Array(comp.outputCount ?? 1).fill(0);
     }
   }
 }
 
+function expectedInputCount(type, registry) {
+  switch (type) {
+    case "NOT":
+    case "LED":
+    case "JUNCTION": return 1;
+    case "AND":
+    case "OR":
+    case "NAND":
+    case "NOR":
+    case "XOR":
+    case "XNOR":
+    case "NPN":      return 2;
+    case "SWITCH":
+    case "CLOCK":    return 0;
+    default: {
+      const comp = registry[type];
+      return comp ? comp.inputCount : 2;
+    }
+  }
+}
+
+// ── Truth table — 200 iterations handles SR latch convergence ────────────────
 function buildTruthTable(nodes, wires, inputPinMap, outputPinMap, registry) {
   const ic = inputPinMap.length;
   const table = {};
@@ -104,16 +130,15 @@ function buildTruthTable(nodes, wires, inputPinMap, outputPinMap, registry) {
     nodes.forEach(n => { values[n.id] = [n.value ?? 0]; });
     inputPinMap.forEach(({ nodeId }, i) => { values[nodeId] = [iv[i]]; });
 
-    for (let iter = 0; iter < 40; iter++) {
+    for (let iter = 0; iter < 200; iter++) {
       let changed = false;
       ordered.forEach(node => {
         if (node.type === "SWITCH" || node.type === "CLOCK") return;
-        const comp = registry[node.type];
-        const ei = node.type === "NOT" || node.type === "LED" || node.type === "JUNCTION" ? 1
-          : comp ? comp.inputCount : 2;
-        const ins = new Array(ei).fill(0);
+        const ei = expectedInputCount(node.type, registry);
+        const ins = new Array(Math.max(ei, 1)).fill(0);
         (incoming.get(node.id) || []).forEach(w => {
-          if (w.to.index < ei) ins[w.to.index] = readOutput(values, w.from.nodeId, w.from.index ?? 0);
+          if (w.to.index < ins.length)
+            ins[w.to.index] = readOutput(values, w.from.nodeId, w.from.index ?? 0);
         });
         const nv = evalGate(node.type, ins, registry);
         if (!arrEq(values[node.id], nv)) { values[node.id] = nv; changed = true; }
@@ -125,15 +150,7 @@ function buildTruthTable(nodes, wires, inputPinMap, outputPinMap, registry) {
   return table;
 }
 
-// ── Live simulation for circuits with feedback (latches, registers, etc.) ────
-//
-// `currentInternalState` is a plain object:
-//   nodeId → value-array        (for primitive gate nodes)
-//   "__sub_" + nodeId → object  (recursive sub-state for nested feedback components)
-//
-// The function is fully recursive: a register containing D-latches, each containing
-// cross-coupled NANDs, will correctly thread state all the way down.
-//
+// ── Live evaluation for feedback circuits (SR latch, D latch, registers…) ────
 export function evaluateFeedbackComponent(compType, inputValues, currentInternalState = {}) {
   const comp = customComponentRegistry[compType];
   if (!comp) return { outputs: [], newInternalState: {} };
@@ -141,16 +158,15 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
   const { nodes, wires, inputPinMap, outputPinMap } = comp;
   const registry = customComponentRegistry;
 
-  // --- Seed node values from stored state (this is the "memory") ---
   const values = {};
   nodes.forEach(n => {
     const stored = currentInternalState[n.id];
     values[n.id] = Array.isArray(stored) ? [...stored] : [n.value ?? 0];
   });
-  // Inject this cycle's external inputs
-  inputPinMap.forEach(({ nodeId }, i) => { values[nodeId] = [inputValues[i] ?? 0]; });
+  inputPinMap.forEach(({ nodeId }, i) => {
+    values[nodeId] = [inputValues[i] ?? 0];
+  });
 
-  // Build incoming wire index
   const incoming = {};
   nodes.forEach(n => { incoming[n.id] = []; });
   wires.forEach(w => {
@@ -164,18 +180,18 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
       subStates[n.id] = currentInternalState[`__sub_${n.id}`] || {};
   });
 
-  for (let pass = 0; pass < 200; pass++) {
+  // 500 passes for deeply nested feedback circuits
+  for (let pass = 0; pass < 500; pass++) {
     let changed = false;
     nodes.forEach(node => {
       if (node.type === "SWITCH" || node.type === "CLOCK") return;
 
       const subComp = registry[node.type];
-      const ei = node.type === "NOT" || node.type === "LED" || node.type === "JUNCTION" ? 1
-        : subComp ? subComp.inputCount : 2;
-
-      const ins = new Array(ei).fill(0);
+      const ei = expectedInputCount(node.type, registry);
+      const ins = new Array(Math.max(ei, 1)).fill(0);
       (incoming[node.id] || []).forEach(w => {
-        if (w.to.index < ei) ins[w.to.index] = readOutput(values, w.from.nodeId, w.from.index ?? 0);
+        if (w.to.index < ins.length)
+          ins[w.to.index] = readOutput(values, w.from.nodeId, w.from.index ?? 0);
       });
 
       let newVal;
@@ -200,9 +216,10 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
     if (!changed) break;
   }
 
-  // --- Collect outputs ---
   const outputs = outputPinMap.map(({ nodeId }) => readOutput(values, nodeId, 0));
 
+  // FIX: declare newInternalState before using it
+  const newInternalState = {};
   nodes.forEach(n => {
     newInternalState[n.id] = Array.isArray(values[n.id]) ? [...values[n.id]] : [0];
     if (subStates[n.id] !== undefined)
@@ -227,7 +244,6 @@ export function registerComponent(name, nodes, wires, inputPinMap, outputPinMap)
     return ya - yb;
   });
 
-  // Check if this circuit has feedback at ANY depth (direct cycle OR nested component)
   const feedback = hasFeedbackCircuit(clonedNodes, clonedWires, customComponentRegistry);
 
   customComponentRegistry[name] = {
@@ -236,17 +252,25 @@ export function registerComponent(name, nodes, wires, inputPinMap, outputPinMap)
     inputCount:   sortedInputs.length,
     outputCount:  sortedOutputs.length,
     hasFeedback:  feedback,
-    truthTable: feedback
+    truthTable:   feedback
       ? null
       : buildTruthTable(clonedNodes, clonedWires, sortedInputs, sortedOutputs, customComponentRegistry),
     nodes: clonedNodes,
     wires: clonedWires,
   };
- 
-  localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
+
+  try {
+    localStorage.setItem("customComponents", JSON.stringify(customComponentRegistry));
+  } catch (e) {
+    console.warn("Could not persist custom components:", e);
+  }
 }
- 
+
 export function loadSavedComponents() {
-  const saved = localStorage.getItem("customComponents");
-  if (saved) Object.assign(customComponentRegistry, JSON.parse(saved));
-} 
+  try {
+    const saved = localStorage.getItem("customComponents");
+    if (saved) Object.assign(customComponentRegistry, JSON.parse(saved));
+  } catch (e) {
+    console.warn("Could not load saved components:", e);
+  }
+}

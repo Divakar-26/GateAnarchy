@@ -43,10 +43,33 @@ function internalStateEq(a, b) {
     for (const k of ka) {
         const va = a[k], vb = b[k];
         if (Array.isArray(va) && Array.isArray(vb)) { if (!arrEq(va, vb)) return false; }
-        else if (typeof va === 'object' && typeof vb === 'object') { if (!internalStateEq(va, vb)) return false; }
+        else if (typeof va === 'object' && va !== null && typeof vb === 'object' && vb !== null) {
+            if (!internalStateEq(va, vb)) return false;
+        }
         else if (va !== vb) return false;
     }
     return true;
+}
+
+function getExpectedInputs(type, custom) {
+    switch (type) {
+        case "NOT":
+        case "LED":
+        case "JUNCTION": return 1;
+        case "AND":
+        case "OR":
+        case "NAND":
+        case "NOR":
+        case "XOR":
+        case "XNOR":
+        case "NPN":      return 2;
+        case "SWITCH":
+        case "CLOCK":    return 0;
+        default:
+            if (type.startsWith("OUT_")) return parseInt(type.split("_")[1]) || 1;
+            if (custom) return custom.inputPinMap.length;
+            return 2;
+    }
 }
 
 export function propagate(nodes, wires) {
@@ -77,11 +100,7 @@ export function propagate(nodes, wires) {
         if (node.type === "SWITCH" || node.type === "CLOCK" || node.type.startsWith("IN_")) return;
 
         const custom = customComponentRegistry[node.type];
-        let expectedInputs;
-        if (node.type === "NOT" || node.type === "LED" || node.type === "JUNCTION") expectedInputs = 1;
-        else if (node.type.startsWith("OUT_")) expectedInputs = parseInt(node.type.split("_")[1]) || 1;
-        else if (custom) expectedInputs = custom.inputPinMap.length;
-        else expectedInputs = 2;
+        const expectedInputs = getExpectedInputs(node.type, custom);
 
         const inArr  = inputsMap.get(node.id) || [];
         const filled = [];
@@ -93,6 +112,11 @@ export function propagate(nodes, wires) {
             case "AND":      nv = filled[0] && filled[1] ? 1 : 0; break;
             case "OR":       nv = filled[0] || filled[1] ? 1 : 0; break;
             case "NOT":      nv = filled[0] ? 0 : 1;              break;
+            case "NAND":     nv = filled[0] && filled[1] ? 0 : 1; break;
+            case "NOR":      nv = filled[0] || filled[1] ? 0 : 1; break;
+            case "XOR":      nv = filled[0] !== filled[1] ? 1 : 0; break;
+            case "XNOR":     nv = filled[0] === filled[1] ? 1 : 0; break;
+            case "NPN":      nv = filled[0] === 1 ? (filled[1] ?? 0) : 0; break;
             case "LED":      nv = filled[0] ? 1 : 0;              break;
             case "JUNCTION": nv = filled[0] ?? 0;                  break;
             default:
@@ -116,9 +140,9 @@ export function propagate(nodes, wires) {
                 }
         }
 
-        const valChanged     = nv !== node.value;
-        const outChanged     = !arrEq(no, node.outputs);
-        const stateChanged   = ni !== node.internalState;
+        const valChanged   = nv !== node.value;
+        const outChanged   = !arrEq(no, node.outputs);
+        const stateChanged = !internalStateEq(ni, node.internalState);
 
         if (valChanged || outChanged || stateChanged) {
             node.value         = nv;
@@ -137,13 +161,13 @@ export function propagate(nodes, wires) {
     const result = nodes.map(orig => {
         const u = nodeMap.get(orig.id);
         if (!u || u === orig) return orig;
-        if (u.value !== orig.value 
+        if (u.value !== orig.value
             || !arrEq(u.outputs, orig.outputs)
             || !internalStateEq(u.internalState, orig.internalState)) {
             dirty = true;
             return u;
         }
         return orig;
-    }); 
+    });
     return dirty ? result : nodes;
 }

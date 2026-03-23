@@ -7,6 +7,7 @@ import { getPinPosition } from "../../utils/pinPosition";
 import { propagate } from "./propagate";
 import TruthTablePanel from "./TruthTablePanel";
 import ClockConfig from "./ClockConfig";
+import { LEDDecimalConverterPanelWrapper, LEDDecimalConverterFullWrapper, LEDDecimalConverterDisplay, LEDDecimalConverterDisplayWrapper, useLEDDecimalConverter } from "./LEDDecimalConverter";
 import { useSettings } from "../../configs/SettingsContext";
 import { syncClocks, setClockChangeHandler, stopAllClocks } from "../../utils/clockManager";
 import { gateColors, gateConfig, customColor } from "../../configs/gates";
@@ -149,6 +150,9 @@ function Workspace({
     const [clockConfig,setClockConfig]             = useState(null);
     const [ghostWorldPos,setGhostWorldPos]         = useState(null);
     const [regionPrompt,setRegionPrompt]           = useState(null);
+    const [ledDecimalRegion,setLedDecimalRegion]   = useState(null);
+    const [ledDecimalPanelOpen,setLedDecimalPanelOpen] = useState(false);
+    const [ledHoveredNodeId,setLedHoveredNodeId]  = useState(null);
     const labelInputRef = useRef(null);
     const {settings} = useSettings();
 
@@ -582,6 +586,20 @@ function Workspace({
         setNodes(prev=>prev.filter(n=>n.id!==id));
         setWires(prev=>prev.filter(w=>w.from.nodeId!==id&&w.to.nodeId!==id));
         setSelectedNodes(prev=>prev.filter(nid=>nid!==id));
+        if(ledDecimalRegion){
+            setRegions(prev=>{
+                const r=prev.find(rr=>rr.id===ledDecimalRegion);
+                if(r&&r.nodeIds.includes(id)){
+                    if(r.nodeIds.length===1){
+                        setLedDecimalRegion(null);
+                        return prev.filter(rr=>rr.id!==ledDecimalRegion);
+                    }else{
+                        return prev.map(rr=>rr.id===ledDecimalRegion?{...rr,nodeIds:rr.nodeIds.filter(nid=>nid!==id)}:rr);
+                    }
+                }
+                return prev;
+            });
+        }
         setNodeMenu(null);
     };
     const handleDuplicateNode=()=>{
@@ -823,6 +841,15 @@ function Workspace({
             {truthTableType&&<TruthTablePanel type={truthTableType} onClose={()=>setTruthTableType(null)}/>}
             {clockConfig&&<ClockConfig node={clockConfig.node} x={clockConfig.x} y={clockConfig.y} onSave={handleClockSave} onClose={()=>setClockConfig(null)}/>}
             {regionPrompt&&<RegionPrompt x={regionPrompt.x} y={regionPrompt.y} onConfirm={confirmRegion} onClose={()=>setRegionPrompt(null)}/>}
+            {ledDecimalRegion&&(
+                <LEDDecimalConverterPanelWrapper
+                    nodes={nodes}
+                    region={(regions||[]).find(r=>r.id===ledDecimalRegion)||null}
+                    ledDecimalPanelOpen={ledDecimalPanelOpen}
+                    onExit={()=>{setLedDecimalRegion(null);if(setRegions)setRegions(prev=>prev.filter(r=>r.id!==ledDecimalRegion));}}
+                    onHoverLED={setLedHoveredNodeId}
+                />
+            )}
 
             {/* ── Canvas ── */}
             <div className="workspace" ref={workspaceRef}
@@ -926,6 +953,15 @@ function Workspace({
                         ))}
                     </svg>
 
+                    {/* ── LED Decimal Converter Display (inside camera layer) ── */}
+                    {ledDecimalRegion&&(
+                        <LEDDecimalConverterDisplayWrapper
+                            nodes={nodes}
+                            region={(regions||[]).find(r=>r.id===ledDecimalRegion)||null}
+                            onTogglePanel={()=>setLedDecimalPanelOpen(!ledDecimalPanelOpen)}
+                        />
+                    )}
+
                     {/* ── Nodes (skip hidden compound switches/LEDs) ── */}
                     {nodes.filter(n=>!compoundHiddenIds.has(n.id)).map(node=>(
                         <Node
@@ -944,6 +980,7 @@ function Workspace({
                             cancelWire={cancelWire}
                             onContextMenu={openNodeMenu}
                             eraseMode={tool==="erase"}
+                            isLEDHovered={ledHoveredNodeId===node.id}
                         />
                     ))}
 
@@ -1057,6 +1094,20 @@ function Workspace({
                                 })()}
                                 {node?.type==="CLOCK"&&<div style={MN.item} onMouseDown={()=>{setClockConfig({node,x:nodeMenu.x,y:nodeMenu.y});setNodeMenu(null);}}>⏱ Configure clock</div>}
                                 {node&&!["SWITCH","LED","CLOCK","JUNCTION"].includes(node.type)&&<div style={MN.item} onMouseDown={()=>{setTruthTableType(node.type);setNodeMenu(null);}}>≡ Truth table</div>}
+                                {(()=>{
+                                    const selNs=nodes.filter(n=>selectedNodes.includes(n.id));
+                                    const isAllLEDs=selectedNodes.length>0&&selNs.every(n=>n.type==="LED");
+                                    if(isAllLEDs){
+                                        return <div style={{...MN.item,color:"#a6e3a1"}} onMouseDown={()=>{
+                                            const regionId=wid();
+                                            if(setRegions)setRegions(prev=>[...prev,{id:regionId,label:"LED to Decimal",nodeIds:[...selectedNodes],isLEDDecimal:true}]);
+                                            setLedDecimalRegion(regionId);
+                                            setLedDecimalPanelOpen(true);
+                                            setNodeMenu(null);
+                                        }}>🔢 To Decimal</div>;
+                                    }
+                                    return null;
+                                })()}
                                 <div style={{height:1,background:"#313244",margin:"3px 0"}}/>
                                 <div style={{...MN.item,color:"#f38ba8"}} onMouseDown={handleDeleteNode}>🗑️ Delete</div>
                             </>):(<>
