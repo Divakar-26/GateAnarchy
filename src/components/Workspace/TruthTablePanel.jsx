@@ -155,7 +155,7 @@ function generateExpressions(rows, inputLabels, outputLabels) {
 
 function renderExpr(expr) { return expr; }
 
-// ── Filter ────────────────────────────────────────────────────────────────────
+
 function matchesFilter(ins, pattern) {
     if (!pattern) return true;
     const clean = pattern.replace(/[^01_?x]/gi, "");
@@ -289,7 +289,7 @@ function getKMapGroups(rows, outputIndex, inputCount) {
     }));
 }
 
-// ── KMapPanel sub-component ───────────────────────────────────────────────────
+
 function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
     const [selectedOutput, setSelectedOutput] = useState(0);
 
@@ -308,7 +308,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
     const CELL = 44;
     const GAP  = 1;
 
-    // Map minterm -> {ri, ci}
+    
     const mintermToPos = {};
     kmap.cells.forEach((row, ri) => row.forEach((cell, ci) => {
         mintermToPos[cell.minterm] = { ri, ci };
@@ -317,7 +317,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
     const colCount = kmap.colGray.length;
     const rowCount = kmap.rowGray.length;
 
-    // Compute group overlays
+    
     const groupOverlays = groups.map(g => {
         const positions = [...g.minterms].map(m => mintermToPos[m]).filter(Boolean);
         if (!positions.length) return null;
@@ -325,7 +325,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
         const colSet = new Set(positions.map(p => p.ci));
         const minRow = Math.min(...rowSet), maxRow = Math.max(...rowSet);
         const minCol = Math.min(...colSet), maxCol = Math.max(...colSet);
-        // Non-contiguous = wrapping group
+        
         const contiguousRows = maxRow - minRow + 1 === rowSet.size;
         const contiguousCols = maxCol - minCol + 1 === colSet.size;
         return { minRow, maxRow, minCol, maxCol, rowSet, colSet, contiguousRows, contiguousCols, color: g.color, border: g.border };
@@ -334,7 +334,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
     return (
         <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-            {/* ── Output selector ── */}
+            {}
             {outputLabels.length > 1 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 10, color: "#6c7086", letterSpacing: "0.06em", textTransform: "uppercase" }}>Output</span>
@@ -353,14 +353,8 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                 </div>
             )}
 
-            {/* ── K-Map grid ── */}
-            {/*
-                Layout (flex column):
-                  [col-axis row]   →  empty corner | col-label+arrow | col-label+arrow ...
-                  [data rows]      →  row-header   | cell            | cell ...
-
-                The corner cell (top-left) shows the diagonal split label: colVar\rowVar
-            */}
+            {}
+            {}
             <div style={{ overflowX: "auto" }}>
                 <table style={{
                     borderCollapse: "separate",
@@ -369,23 +363,23 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                 }}>
                     <thead>
                         <tr>
-                            {/* ── Corner: diagonal label showing colVar \ rowVar ── */}
+                            {}
                             <th style={{
                                 width: 36, height: 36,
                                 padding: 0, verticalAlign: "bottom",
                                 position: "relative",
                             }}>
-                                {/* diagonal line */}
+                                {}
                                 <svg width="36" height="36" style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}>
                                     <line x1="0" y1="0" x2="36" y2="36" stroke="#313244" strokeWidth="1" />
                                 </svg>
-                                {/* col var label — top-right */}
+                                {}
                                 <span style={{
                                     position: "absolute", top: 2, right: 3,
                                     fontSize: 9, fontWeight: 700, color: "#89b4fa",
                                     fontFamily: "monospace", lineHeight: 1,
                                 }}>{kmap.colLabel}</span>
-                                {/* row var label — bottom-left */}
+                                {}
                                 <span style={{
                                     position: "absolute", bottom: 2, left: 3,
                                     fontSize: 9, fontWeight: 700, color: "#89b4fa",
@@ -393,7 +387,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                                 }}>{kmap.rowLabel}</span>
                             </th>
 
-                            {/* ── Column Gray-code headers ── */}
+                            {}
                             {kmap.colGray.map((cg, ci) => (
                                 <th key={ci} style={{
                                     width: CELL, height: 36, padding: 0,
@@ -403,7 +397,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                                         display: "flex", flexDirection: "column",
                                         alignItems: "center", gap: 2, paddingBottom: 4,
                                     }}>
-                                        {/* downward arrow on first col header only */}
+                                        {}
                                         {ci === 0 && (
                                             <div style={{
                                                 fontSize: 9, color: "#45475a",
@@ -423,7 +417,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                     <tbody>
                         {kmap.cells.map((rowCells, ri) => (
                             <tr key={ri}>
-                                {/* ── Row Gray-code header ── */}
+                                {}
                                 <td style={{
                                     width: 36, padding: 0,
                                     textAlign: "right", verticalAlign: "middle",
@@ -434,16 +428,16 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                                             fontSize: 10, fontWeight: 700,
                                             color: "#89b4fa", fontFamily: "monospace",
                                         }}>{kmap.rowGray[ri]}</span>
-                                        {/* rightward arrow on first row only */}
+                                        {}
                                         {ri === 0 && (
                                             <span style={{ fontSize: 9, color: "#45475a" }}>→</span>
                                         )}
                                     </div>
                                 </td>
 
-                                {/* ── Cells ── */}
+                                {}
                                 {rowCells.map((cell, ci) => {
-                                    // Find which groups cover this cell
+                                    
                                     const cellGroups = groupOverlays.filter(g =>
                                         g.rowSet.has(ri) && g.colSet.has(ci)
                                     );
@@ -463,13 +457,13 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                                             textAlign: "center", verticalAlign: "middle",
                                             boxSizing: "border-box",
                                         }}>
-                                            {/* Main value */}
+                                            {}
                                             <div style={{
                                                 fontSize: 16, fontFamily: "monospace", fontWeight: 700,
                                                 color: cell.val === 1 ? "#a6e3a1" : "#3a3a50",
                                                 lineHeight: 1,
                                             }}>{cell.val}</div>
-                                            {/* Minterm index */}
+                                            {}
                                             <div style={{
                                                 position: "absolute", bottom: 2, right: 4,
                                                 fontSize: 8, color: "#45475a",
@@ -484,7 +478,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                 </table>
             </div>
 
-            {/* ── Boolean expression ── */}
+            {}
             {expressions && (
                 <div style={{
                     padding: "8px 10px",
@@ -501,7 +495,7 @@ function KMapPanel({ rows, inputLabels, outputLabels, inputCount }) {
                 </div>
             )}
 
-            {/* ── Legend ── */}
+            {}
             {groupOverlays.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     {groupOverlays.map((g, i) => (
@@ -597,12 +591,12 @@ function TruthTablePanel({ type, onClose }) {
             maxHeight: "calc(100vh - 80px)",
             overflow: "hidden",
         }}>
-            {/* ── Header ── */}
+            {}
             <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "9px 12px 0", borderBottom: "1px solid #313244", flexShrink: 0,
             }}>
-                {/* Left: type info + tabs */}
+                {}
                 <div style={{ display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: "#cdd6f4", letterSpacing: "0.04em" }}>
@@ -626,7 +620,7 @@ function TruthTablePanel({ type, onClose }) {
                     </div>
                 </div>
 
-                {/* Right: expr toggle + close */}
+                {}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, paddingBottom: 6 }}>
                     {expressions && activeTab === "table" && (
                         <button onClick={() => setShowExpr(v => !v)} style={{
@@ -649,7 +643,7 @@ function TruthTablePanel({ type, onClose }) {
                 </div>
             </div>
 
-            {/* ── K-Map tab ── */}
+            {}
             {activeTab === "kmap" && (
                 <div style={{ overflowY: "auto", flex: 1 }}>
                     <KMapPanel
@@ -661,9 +655,9 @@ function TruthTablePanel({ type, onClose }) {
                 </div>
             )}
 
-            {/* ── Table tab ── */}
+            {}
             {activeTab === "table" && (<>
-                {/* Boolean Expressions */}
+                {}
                 {expressions && showExpr && (
                     <div style={{
                         padding: "8px 12px", borderBottom: "1px solid #313244",
@@ -685,7 +679,7 @@ function TruthTablePanel({ type, onClose }) {
                     </div>
                 )}
 
-                {/* Filter bar */}
+                {}
                 {isLarge && (
                     <div style={{ padding: "7px 10px", borderBottom: "1px solid #313244", flexShrink: 0 }}>
                         <input
@@ -705,7 +699,7 @@ function TruthTablePanel({ type, onClose }) {
                     </div>
                 )}
 
-                {/* Table */}
+                {}
                 <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
                     {filtered.length === 0 ? (
                         <div style={{ padding: "20px", textAlign: "center", color: "#45475a", fontSize: 12 }}>
@@ -739,7 +733,7 @@ function TruthTablePanel({ type, onClose }) {
                     )}
                 </div>
 
-                {/* Footer */}
+                {}
                 <div style={{
                     padding: "5px 12px", borderTop: "1px solid #313244",
                     display: "flex", gap: 12, fontSize: 10, color: "#45475a", flexShrink: 0,

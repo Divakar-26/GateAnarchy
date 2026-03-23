@@ -63,7 +63,7 @@ function hasFeedbackCircuit(nodes, wires, registry) {
   return false;
 }
 
-// ── Handles ALL gate types including NPN ─────────────────────────────────────
+
 function evalGate(type, ins, registry) {
   switch (type) {
     case "AND":      return [(ins[0] && ins[1]) ? 1 : 0];
@@ -111,7 +111,7 @@ function expectedInputCount(type, registry) {
   }
 }
 
-// ── Truth table — 200 iterations handles SR latch convergence ────────────────
+
 function buildTruthTable(nodes, wires, inputPinMap, outputPinMap, registry) {
   const ic = inputPinMap.length;
   const table = {};
@@ -150,7 +150,7 @@ function buildTruthTable(nodes, wires, inputPinMap, outputPinMap, registry) {
   return table;
 }
 
-// ── Live evaluation for feedback circuits (SR latch, D latch, registers…) ────
+
 export function evaluateFeedbackComponent(compType, inputValues, currentInternalState = {}) {
   const comp = customComponentRegistry[compType];
   if (!comp) return { outputs: [], newInternalState: {} };
@@ -180,7 +180,7 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
       subStates[n.id] = currentInternalState[`__sub_${n.id}`] || {};
   });
 
-  // 500 passes for deeply nested feedback circuits
+  
   for (let pass = 0; pass < 500; pass++) {
     let changed = false;
     nodes.forEach(node => {
@@ -218,7 +218,7 @@ export function evaluateFeedbackComponent(compType, inputValues, currentInternal
 
   const outputs = outputPinMap.map(({ nodeId }) => readOutput(values, nodeId, 0));
 
-  // FIX: declare newInternalState before using it
+  
   const newInternalState = {};
   nodes.forEach(n => {
     newInternalState[n.id] = Array.isArray(values[n.id]) ? [...values[n.id]] : [0];

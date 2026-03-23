@@ -8,11 +8,7 @@ export function setClockChangeHandler(fn) {
     _onChange = fn;
 }
 
-/**
- * Call after every nodes-state update.
- * Starts timers for new CLOCK nodes, restarts on param change,
- * and cleans up timers for removed nodes.
- */
+
 export function syncClocks(nodes) {
     const clockNodes = nodes.filter(n => n.type === "CLOCK");
     const liveIds    = new Set(clockNodes.map(n => n.id));
@@ -47,8 +43,8 @@ export function syncClocks(nodes) {
 
 function scheduleTick(nodeId, hz, duty, currentPhase) {
     const period  = 1000 / hz;
-    // currentPhase is the phase we're *currently in*,
-    // so we wait its remaining half-period then flip.
+    
+    
     const delay   = currentPhase === 1
         ? period * duty
         : period * (1 - duty);
@@ -72,7 +68,7 @@ export function stopAllClocks() {
     phases.clear();
 }
 
-/** Current output value of a clock node (used for initial render). */
+
 export function getClockPhase(nodeId) {
     return phases.get(nodeId) ?? 0;
 }

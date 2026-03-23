@@ -42,7 +42,7 @@ const Node = memo(function Node({
     const inputPinLabels  = customComp?.inputPinMap?.map(({nodeId})=>customComp.nodes.find(n=>n.id===nodeId)?.label||null)||[];
     const outputPinLabels = customComp?.outputPinMap?.map(({nodeId})=>customComp.nodes.find(n=>n.id===nodeId)?.label||null)||[];
 
-    // ── Drag — reads cameraRef so always fresh, never stale ──────────────────
+    
     const handleMouseDown=(e)=>{
         if (e.button!==0) return;
         e.stopPropagation();
@@ -115,7 +115,7 @@ const Node = memo(function Node({
                     boxSizing:      'border-box',
                 }}
             >
-                {/* Input pins */}
+                {}
                 {!isJunction&&Array.from({length:config.inputs}).map((_,i)=>(
                     <Pin key={`in-${i}`} type="input" index={i} total={config.inputs}
                         nodeHeight={nh} nodeId={id} onPinClick={onPinClick}
@@ -130,7 +130,7 @@ const Node = memo(function Node({
                     </span>
                 )}
 
-                {/* Output pins */}
+                {}
                 {!isJunction&&Array.from({length:config.outputs}).map((_,i)=>(
                     <Pin key={`out-${i}`} type="output" index={i} total={config.outputs}
                         nodeHeight={nh} nodeId={id} onPinClick={onPinClick}
@@ -138,14 +138,14 @@ const Node = memo(function Node({
                 ))}
             </div>
 
-            {/* User label */}
+            {}
             {label&&!isJunction&&(
                 <div style={{position:'absolute',whiteSpace:'nowrap',fontSize:'11px',fontWeight:500,color:'#cdd6f4',pointerEvents:'none',userSelect:'none',opacity:hovered?1:0.65,transition:'opacity 0.15s',
                     ...(isSwitch||isClock?{left:nw+8,top:'50%',transform:'translateY(-50%)'}:type==='LED'?{right:nw+8,top:'50%',transform:'translateY(-50%)'}:{top:nh+5,left:'50%',transform:'translateX(-50%)',fontSize:'10px'}),
                 }}>{label}</div>
             )}
 
-            {/* Clock Hz badge */}
+            {}
             {isClock&&(
                 <div style={{position:'absolute',top:nh+4,left:'50%',transform:'translateX(-50%)',fontSize:9,fontFamily:'monospace',fontWeight:700,color:hovered?'#89b4fa':'#45475a',whiteSpace:'nowrap',pointerEvents:'none',transition:'color 0.15s'}}>
                     {(hz??1)>=1?`${hz??1} Hz`:`${(hz??1).toFixed(1)} Hz`}

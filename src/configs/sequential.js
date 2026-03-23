@@ -13,9 +13,9 @@ export function tickClock(node) {
   return { ...node, value: node.value ? 0 : 1 };
 }
 
-// ── Flip-flop evaluation ──────────────────────────────────────────────────────
-// state = { q: 0|1, prevClk: 0|1 }
-// Returns { value, outputs: [Q, Q̄], flipState }
+
+
+
 export function evaluateFlipFlop(type, inputs, state = { q: 0, prevClk: 0 }) {
   let q = state.q ?? 0;
 
@@ -43,7 +43,7 @@ export function evaluateFlipFlop(type, inputs, state = { q: 0, prevClk: 0 }) {
       if (rising(clk)) {
         if (s && !r)      q = 1;
         else if (!s && r) q = 0;
-        // s && r = invalid; !s && !r = hold
+        
       }
       return mkResult(q, clk);
     }
@@ -52,10 +52,10 @@ export function evaluateFlipFlop(type, inputs, state = { q: 0, prevClk: 0 }) {
       const k   = inputs[1] ?? 0;
       const clk = inputs[2] ?? 0;
       if (rising(clk)) {
-        if      (j && k)  q = q ? 0 : 1; // toggle
+        if      (j && k)  q = q ? 0 : 1; 
         else if (j && !k) q = 1;
         else if (!j && k) q = 0;
-        // !j && !k = hold
+        
       }
       return mkResult(q, clk);
     }

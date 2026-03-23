@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
-// ── Single hook — call this ONCE in Workspace and pass the result down ────────
+
 export function useLEDDecimalConverter(nodes, region) {
     const [bitAssignments, setBitAssignments] = useState({});
     const [assignmentOrder, setAssignmentOrder] = useState([]);
     const [hoveredNodeId, setHoveredNodeId] = useState(null);
 
-    // Reset state whenever the region changes (new "To Decimal" session)
+    
     const regionId = region?.id ?? null;
     useEffect(() => {
         setBitAssignments({});
@@ -19,8 +19,8 @@ export function useLEDDecimalConverter(nodes, region) {
         [nodes, region]
     );
 
-    // Recompute value whenever LED values or assignment order changes
-    // Create a "signature" of the current LED values to ensure fresh reads
+    
+    
     const ledValueSig = useMemo(
         () => assignmentOrder.map(id => {
             const node = nodes.find(n => n.id === id);
@@ -34,25 +34,25 @@ export function useLEDDecimalConverter(nodes, region) {
         let value = 0;
         assignmentOrder.forEach((nodeId, bitPos) => {
             const node = nodes.find(n => n.id === nodeId);
-            // Check if node exists and has value 1 (LED is ON)
+            
             if (node && node.value === 1) {
                 value += 1 << bitPos;
             }
         });
         return value;
-    }, [ledValueSig, assignmentOrder]);
+    }, [ledValueSig, assignmentOrder, nodes]);
 
-    // Click to assign — click again to un-assign and renumber the rest sequentially
+    
     const handleLEDClick = useCallback((nodeId) => {
         setBitAssignments(prevAssign => {
             setAssignmentOrder(prevOrder => {
                 if (prevAssign[nodeId] !== undefined) {
-                    // Remove and renumber everything that came after
+                    
                     const newOrder = prevOrder.filter(id => id !== nodeId);
                     const newAssign = {};
                     newOrder.forEach((id, idx) => { newAssign[id] = idx; });
-                    // We need to update bitAssignments from inside setAssignmentOrder — 
-                    // use setTimeout to batch properly
+                    
+                    
                     setTimeout(() => setBitAssignments(newAssign), 0);
                     return newOrder;
                 } else {
@@ -61,36 +61,36 @@ export function useLEDDecimalConverter(nodes, region) {
                     return [...prevOrder, nodeId];
                 }
             });
-            return prevAssign; // returned immediately; real update via setTimeout above
+            return prevAssign; 
         });
     }, []);
 
-    // Simpler, non-batched version that avoids the double-setState complexity
+    
     const handleLEDClickClean = useCallback((nodeId) => {
         if (bitAssignments[nodeId] !== undefined) {
-            // Un-assign: remove from order and renumber remaining sequentially
+            
             const newOrder = assignmentOrder.filter(id => id !== nodeId);
             const newAssign = {};
             newOrder.forEach((id, idx) => { newAssign[id] = idx; });
             setAssignmentOrder(newOrder);
             setBitAssignments(newAssign);
         } else {
-            // Assign next bit position
+            
             const bitPos = assignmentOrder.length;
             setAssignmentOrder(prev => [...prev, nodeId]);
             setBitAssignments(prev => ({ ...prev, [nodeId]: bitPos }));
         }
     }, [bitAssignments, assignmentOrder]);
 
-    // Position the display screen next to the LED group
+    
     const { displayX, displayY } = useMemo(() => {
         if (!selectedNodeObjects.length) return { displayX: 0, displayY: 0 };
         const xs = selectedNodeObjects.map(n => n.x);
         const ys = selectedNodeObjects.map(n => n.y);
         const minX = Math.min(...xs);
-        const maxX = Math.max(...xs) + 28; // LED width = 28
+        const maxX = Math.max(...xs) + 28; 
         const minY = Math.min(...ys);
-        const maxY = Math.max(...ys) + 28; // LED height = 28
+        const maxY = Math.max(...ys) + 28; 
         const boundsW = maxX - minX;
         const boundsH = maxY - minY;
         const isVertical = boundsH >= boundsW;
@@ -114,7 +114,7 @@ export function useLEDDecimalConverter(nodes, region) {
     };
 }
 
-// ── Display screen (place inside camera layer — uses world coordinates) ────────
+
 export function LEDDecimalConverterDisplay({
     displayValue,
     displayX,
@@ -146,7 +146,7 @@ export function LEDDecimalConverterDisplay({
                 boxSizing: 'border-box',
             }}
         >
-            {/* Main decimal value */}
+            {}
             <div style={{
                 fontFamily: 'monospace',
                 fontSize: n > 0 ? 36 : 28,
@@ -157,7 +157,7 @@ export function LEDDecimalConverterDisplay({
                 {displayValue}
             </div>
 
-            {/* Binary string */}
+            {}
             {n > 0 && (
                 <div style={{
                     fontFamily: 'monospace',
@@ -170,14 +170,14 @@ export function LEDDecimalConverterDisplay({
                 </div>
             )}
 
-            {/* Bit-count / max */}
+            {}
             {n > 0 && (
                 <div style={{ fontSize: 9, color: '#444', marginTop: 3 }}>
                     {n}b · max {maxVal}
                 </div>
             )}
 
-            {/* Prompt when no bits assigned yet */}
+            {}
             {n === 0 && (
                 <div style={{ fontSize: 9, color: '#556', marginTop: 6 }}>
                     open panel to assign bits
@@ -187,7 +187,7 @@ export function LEDDecimalConverterDisplay({
     );
 }
 
-// ── Panel (place outside camera layer — uses fixed/screen coordinates) ─────────
+
 export function LEDDecimalConverterPanel({
     onExit,
     bitAssignments,
@@ -195,7 +195,7 @@ export function LEDDecimalConverterPanel({
     selectedNodeObjects,
     handleLEDClick,
     panelOpen,
-    onHoverNode,   // (nodeId | null) => void
+    onHoverNode,   
 }) {
     if (!panelOpen) return null;
 
@@ -217,7 +217,7 @@ export function LEDDecimalConverterPanel({
             pointerEvents: 'auto',
             fontFamily: "'Courier New', monospace",
         }}>
-            {/* Header */}
+            {}
             <div style={{
                 fontSize: 11,
                 fontWeight: 900,
@@ -240,7 +240,7 @@ export function LEDDecimalConverterPanel({
                 Click again to un-assign (others renumber).
             </div>
 
-            {/* LED list */}
+            {}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
                 {selectedNodeObjects.map((node) => {
                     const assigned = bitAssignments[node.id] !== undefined;
@@ -302,7 +302,7 @@ export function LEDDecimalConverterPanel({
                 })}
             </div>
 
-            {/* Assignment summary */}
+            {}
             {assignmentOrder.length > 0 && (
                 <div style={{
                     fontSize: 10,
@@ -317,7 +317,7 @@ export function LEDDecimalConverterPanel({
                 </div>
             )}
 
-            {/* Exit button */}
+            {}
             <button
                 onClick={onExit}
                 style={{
@@ -351,15 +351,12 @@ export function LEDDecimalConverterPanel({
     );
 }
 
-// ── Display Wrapper (safe hook call) ──────────────────────────────────────────
+
 export function LEDDecimalConverterDisplayWrapper({
-    nodes,
-    region,
+    hookData,
     onTogglePanel,
 }) {
-    if (!region) return null;
-
-    const hookData = useLEDDecimalConverter(nodes, region);
+    if (!hookData) return null;
 
     return (
         <LEDDecimalConverterDisplay
@@ -372,7 +369,7 @@ export function LEDDecimalConverterDisplayWrapper({
     );
 }
 
-// ── Wrapper Component (renders both display in camera layer + panel outside) ────
+
 export function LEDDecimalConverterFullWrapper({
     nodes,
     region,
@@ -388,7 +385,7 @@ export function LEDDecimalConverterFullWrapper({
 
     return (
         <>
-            {/* Display screen inside camera layer (passed via portal-like ref) */}
+            {}
             {cameraLayerRef?.current && (
                 <LEDDecimalConverterDisplay
                     displayValue={hookData.displayValue}
@@ -399,7 +396,7 @@ export function LEDDecimalConverterFullWrapper({
                 />
             )}
 
-            {/* Panel outside camera layer */}
+            {}
             {ledDecimalPanelOpen && (
                 <LEDDecimalConverterPanel
                     onExit={onExit}
@@ -418,17 +415,13 @@ export function LEDDecimalConverterFullWrapper({
     );
 }
 
-// ── Legacy wrapper for backwards compatibility ─────────────────────────────────
+
 export function LEDDecimalConverterPanelWrapper({
-    nodes,
-    region,
-    ledDecimalPanelOpen,
+    hookData,
     onExit,
     onHoverLED,
 }) {
-    if (!region || !ledDecimalPanelOpen) return null;
-
-    const hookData = useLEDDecimalConverter(nodes, region);
+    if (!hookData) return null;
 
     return (
         <LEDDecimalConverterPanel
@@ -437,7 +430,7 @@ export function LEDDecimalConverterPanelWrapper({
             assignmentOrder={hookData.assignmentOrder}
             selectedNodeObjects={hookData.selectedNodeObjects}
             handleLEDClick={hookData.handleLEDClick}
-            panelOpen={ledDecimalPanelOpen}
+            panelOpen={true}
             onHoverNode={(nodeId) => {
                 onHoverLED(nodeId);
                 hookData.setHoveredNodeId(nodeId);

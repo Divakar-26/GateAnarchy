@@ -1,4 +1,4 @@
-// src/components/Workspace/Workspace.jsx
+
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import '../../styles/workspace.css';
 import Node from "../Node";
@@ -112,7 +112,7 @@ function findWireAtWorldPoint(px,py,nodes,wires,wireStyle,zoom){
 }
 let _wid=9000; const wid=()=>++_wid;
 
-// ── Workspace ─────────────────────────────────────────────────────────────────
+
 function Workspace({
     nodes, setNodes, wires, setWires,
     regions, setRegions,
@@ -167,7 +167,7 @@ function Workspace({
 
     const selectedSet = useMemo(()=>new Set(selectedNodes),[selectedNodes]);
 
-    // All switch/LED IDs hidden inside compound regions
+    
     const compoundHiddenIds = useMemo(()=>{
         const ids=new Set();
         (regions||[]).filter(r=>r.isCompound).forEach(r=>{
@@ -194,7 +194,14 @@ function Workspace({
         return m;
     },[nodes,settings]);
 
-    // ── Propagation ───────────────────────────────────────────────────────────
+    const ledDecimalRegionObj = useMemo(() => 
+        (regions || []).find(r => r.id === ledDecimalRegion) || null,
+        [regions, ledDecimalRegion]
+    );
+
+    const ledDecimalConverterHookData = useLEDDecimalConverter(nodes, ledDecimalRegionObj);
+
+    
     const prevSigRef = useRef('');
     useEffect(()=>{
         const nodeSig=nodes.map(n=>`${n.id}:${n.value}:${(n.outputs||[]).join(',')}`).join('|');
@@ -218,7 +225,7 @@ function Workspace({
         else prevSigRef.current=sig;
     },[nodes,wires]);
 
-    // ── Clock management ──────────────────────────────────────────────────────
+    
     useEffect(()=>{
         setClockChangeHandler((nodeId,newValue)=>{
             setNodes(prev=>{
@@ -231,7 +238,7 @@ function Workspace({
     },[]);
     useEffect(()=>{syncClocks(nodes);},[nodes]);
 
-    // ── Camera + infinite grid ────────────────────────────────────────────────
+    
     const applyCameraDOM = (cam) => {
         cameraRef.current = cam;
         if (cameraLayerRef.current)
@@ -279,7 +286,7 @@ function Workspace({
 
     useEffect(()=>{applyCameraDOM(cameraRef.current);},[settings.showGrid,settings.gridColor,settings.bgColor]);
 
-    // ── Stable callbacks ──────────────────────────────────────────────────────
+    
     const cancelWire = useCallback(()=>{setActiveWire(null);setActiveWireWaypoints([]);},[]);
 
     const updateNodePosition = useCallback((id,x,y,action=null,isGroupDrag=false)=>{
@@ -351,7 +358,7 @@ function Workspace({
         }));
     },[]);
 
-    // ── Join ──────────────────────────────────────────────────────────────────
+    
     const handleJoin = useCallback(()=>{
         const sel = selectedRef.current;
         if (sel.length < 2) return;
@@ -385,9 +392,9 @@ function Workspace({
         if (newWires.length) setWires(prev => [...prev, ...newWires]);
     }, []);
 
-    // ── Make Compound ─────────────────────────────────────────────────────────
-    // For each switch: record its outgoing wire destinations, remove those wires.
-    // Switches/LEDs become hidden. Their signals are still simulated internally.
+    
+    
+    
     const handleMakeCompound = useCallback((regionId)=>{
         const region = regionsRef.current?.find(r=>r.id===regionId);
         if(!region) return;
@@ -396,7 +403,7 @@ function Workspace({
         const leds     = regionNodes.filter(n=>n.type==='LED').sort((a,b)=>a.y-b.y);
         const currentWires = wiresRef.current;
 
-        // Save each switch's downstream gate connections
+        
         const inputWireTargets = switches.map(sw=>({
             switchId: sw.id,
             label:    sw.label || null,
@@ -405,7 +412,7 @@ function Workspace({
                 .map(w=>({nodeId:w.to.nodeId, index:w.to.index, total:w.to.total})),
         }));
 
-        // Save each LED's upstream gate connection (for output pin "start wire" logic)
+        
         const outputWireSources = leds.map(led=>({
             ledId:  led.id,
             label:  led.label || null,
@@ -418,7 +425,7 @@ function Workspace({
                 : null,
         }));
 
-        // Remove switch → gate wires (replaced by external → input pin connections)
+        
         const switchIdSet = new Set(switches.map(s=>s.id));
         setWires(prev=>prev.filter(w=>!switchIdSet.has(w.from.nodeId)));
 
@@ -429,19 +436,19 @@ function Workspace({
                 isCompound:        true,
                 inputNodeIds:      switches.map(s=>s.id),
                 outputNodeIds:     leds.map(l=>l.id),
-                inputWireTargets,  // [{switchId, label, targets}]
-                outputWireSources, // [{ledId, label, source}]
+                inputWireTargets,  
+                outputWireSources, 
               }
             : r
         ));
         setRegionMenu(null);
     },[]);
 
-    // ── Remove Compound ───────────────────────────────────────────────────────
+    
     const handleRemoveCompound = useCallback((regionId)=>{
         const region = regionsRef.current?.find(r=>r.id===regionId);
         if(!region) return;
-        // Restore switch → gate wires
+        
         const restoredWires = (region.inputWireTargets||[]).flatMap(entry=>
             entry.targets.map(t=>({
                 id:wid(),
@@ -458,16 +465,16 @@ function Workspace({
         setRegionMenu(null);
     },[]);
 
-    // ── Compound pin click (called from the interactive pin SVG) ─────────────
-    //
-    // INPUT pin (left side — switch proxy):
-    //   • If a wire IS being dragged: connect it to all internal gate inputs this switch fed.
-    //   • If NO wire is being dragged: do nothing (input pins only receive).
-    //
-    // OUTPUT pin (right side — LED proxy):
-    //   • If NO wire is being dragged: start a wire from the gate that drives this LED.
-    //   • If a wire IS being dragged: ignore (output pins only send).
-    //
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     const handleCompoundPinClick = useCallback((e, regionId, pinIndex, isInput)=>{
         e.stopPropagation();
         if(toolRef.current==="erase") return;
@@ -476,10 +483,10 @@ function Workspace({
         if(!region) return;
 
         const aw = activeWireRef.current;
-        const waypoints = [...(activeWireRef.current ? [] : [])]; // captured below properly
+        const waypoints = [...(activeWireRef.current ? [] : [])]; 
 
         if(isInput){
-            // Receive an incoming wire → wire to all internal targets
+            
             if(!aw || aw.type!=="output") return;
 
             const entry = (region.inputWireTargets||[])[pinIndex];
@@ -501,7 +508,7 @@ function Workspace({
             setActiveWireWaypoints([]);
 
         } else {
-            // Start a wire from the gate that drives this LED
+            
             if(aw) return;
 
             const entry = (region.outputWireSources||[])[pinIndex];
@@ -517,7 +524,7 @@ function Workspace({
         }
     },[]);
 
-    // ── Copy / Paste ──────────────────────────────────────────────────────────
+    
     const handleCopy = useCallback(()=>{
         const sel=selectedRef.current;
         if(!sel.length)return;
@@ -565,7 +572,7 @@ function Workspace({
         setSelectedNodes(newNodes.map(n=>n.id));
     },[clipboardRef,regions]);
 
-    // ── Region ────────────────────────────────────────────────────────────────
+    
     const confirmRegion=(label)=>{
         if(!regionPrompt||!label?.trim()){setRegionPrompt(null);return;}
         if(setRegions)setRegions(prev=>[...prev,{id:wid(),label:label.trim(),nodeIds:regionPrompt.nodeIds}]);
@@ -580,7 +587,7 @@ function Workspace({
         return{x:Math.min(...xs)-REGION_PAD,y:Math.min(...ys)-REGION_PAD,w:Math.max(...xe)-Math.min(...xs)+REGION_PAD*2,h:Math.max(...ye)-Math.min(...ys)+REGION_PAD*2};
     };
 
-    // ── Node menu actions ─────────────────────────────────────────────────────
+    
     const handleDeleteNode=()=>{
         const id=nodeMenu.nodeId;
         setNodes(prev=>prev.filter(n=>n.id!==id));
@@ -619,7 +626,7 @@ function Workspace({
         setClockConfig(null);
     };
 
-    // ── Keyboard ──────────────────────────────────────────────────────────────
+    
     useEffect(()=>{
         const onKey=(e)=>{
             if(document.activeElement.tagName==="INPUT")return;
@@ -722,7 +729,7 @@ function Workspace({
         applyCameraDOM(cam);setCamera(cam);
     };
 
-    // Right-click on canvas = add wire waypoint only. No region prompt here.
+    
     const handleContextMenu=(e)=>{
         e.preventDefault();
         if(activeWireRef.current){
@@ -764,8 +771,8 @@ function Workspace({
 
     const{wireActiveColor,wireInactiveColor,wireStyle}=settings;
 
-    // ── Build compound pin data for rendering ─────────────────────────────────
-    // Computed here so the interactive SVG can use it with correct world coords.
+    
+    
     const compoundPinData = useMemo(()=>{
         return (regions||[])
             .filter(r=>r.isCompound)
@@ -784,7 +791,7 @@ function Workspace({
                 const outEntries = region.outputWireSources || [];
 
                 const inputs = inEntries.map((entry, i)=>{
-                    // Active if any wire from external currently feeds any of this switch's targets
+                    
                     const isActive = entry.targets.some(t=>{
                         const dw = wires.find(w=>w.to.nodeId===t.nodeId&&w.to.index===t.index);
                         if(!dw) return false;
@@ -841,17 +848,15 @@ function Workspace({
             {truthTableType&&<TruthTablePanel type={truthTableType} onClose={()=>setTruthTableType(null)}/>}
             {clockConfig&&<ClockConfig node={clockConfig.node} x={clockConfig.x} y={clockConfig.y} onSave={handleClockSave} onClose={()=>setClockConfig(null)}/>}
             {regionPrompt&&<RegionPrompt x={regionPrompt.x} y={regionPrompt.y} onConfirm={confirmRegion} onClose={()=>setRegionPrompt(null)}/>}
-            {ledDecimalRegion&&(
+            {ledDecimalRegion&&ledDecimalPanelOpen&&(
                 <LEDDecimalConverterPanelWrapper
-                    nodes={nodes}
-                    region={(regions||[]).find(r=>r.id===ledDecimalRegion)||null}
-                    ledDecimalPanelOpen={ledDecimalPanelOpen}
+                    hookData={ledDecimalConverterHookData}
                     onExit={()=>{setLedDecimalRegion(null);if(setRegions)setRegions(prev=>prev.filter(r=>r.id!==ledDecimalRegion));}}
                     onHoverLED={setLedHoveredNodeId}
                 />
             )}
 
-            {/* ── Canvas ── */}
+            {}
             <div className="workspace" ref={workspaceRef}
                 style={{cursor:cursorMap[tool],background:settings.bgColor}}
                 onMouseMove={handleMouseMove} onMouseDown={handleMouseDown}
@@ -859,12 +864,12 @@ function Workspace({
             >
                 <div ref={gridRef} className="grid-layer" style={{pointerEvents:"none"}}/>
 
-                {/* Camera layer — everything inside moves with pan/zoom */}
+                {}
                 <div ref={cameraLayerRef} className="camera-layer" style={{
                     transform:`translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`,
                     transformOrigin:"0 0",position:"absolute",width:"100%",height:"100%",pointerEvents:"none",
                 }}>
-                    {/* Regions (background boxes + labels) */}
+                    {}
                     {(regions||[]).map(region=>{
                         const b=computeRegionBounds(region.nodeIds);
                         if(!b)return null;
@@ -880,7 +885,7 @@ function Workspace({
                                     :"inset 0 0 0 1px rgba(137,180,250,0.18)",
                                 pointerEvents:"none",boxSizing:"border-box",
                             }}>
-                                {/* Label bar — right-click to open region menu */}
+                                {}
                                 <div style={{position:"absolute",top:-26,left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,0.72)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:6,padding:"3px 10px",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6,pointerEvents:"auto"}}
                                     onContextMenu={e=>{e.preventDefault();e.stopPropagation();setRegionMenu({regionId:region.id,x:e.clientX,y:e.clientY});}}>
                                     {isCompound&&<span style={{fontSize:9,fontWeight:700,color:"#cba6f7",background:"rgba(203,166,247,0.15)",borderRadius:3,padding:"1px 5px",letterSpacing:"0.06em"}}>COMPOUND</span>}
@@ -895,9 +900,9 @@ function Workspace({
                         );
                     })}
 
-                    {/* ── Wire SVG (pointer-events:none — purely visual) ── */}
+                    {}
                     <svg className="wire-layer" style={{pointerEvents:"none"}}>
-                        {/* Normal wires — skip any connected to hidden compound switch/LED nodes */}
+                        {}
                         {wires.filter(w=>!compoundHiddenIds.has(w.from.nodeId)&&!compoundHiddenIds.has(w.to.nodeId)).map(wire=>{
                             const n1=nodeMap.get(wire.from.nodeId),n2=nodeMap.get(wire.to.nodeId);
                             if(!n1||!n2)return null;
@@ -905,14 +910,14 @@ function Workspace({
                             const wireActive=n1.type.startsWith("IN_")?(n1.outputs?.[wire.from.index]??0)===1:n1.value===1;
                             return <Wire key={wire.id} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} active={wireActive} waypoints={wire.waypoints||[]} activeColor={wireActiveColor} inactiveColor={wireInactiveColor} wireStyle={wireStyle}/>;
                         })}
-                        {/* Active wire preview */}
+                        {}
                         {activeWire&&(()=>{
                             const node=nodeMap.get(activeWire.nodeId);
                             if(!node)return null;
                             const p=pinPos(node,activeWire,true);
                             return <Wire x1={p.x} y1={p.y} x2={mousePos.x} y2={mousePos.y} active={false} waypoints={activeWireWaypoints} activeColor={wireActiveColor} inactiveColor={wireInactiveColor} wireStyle={wireStyle}/>;
                         })()}
-                        {/* Fan-out dots */}
+                        {}
                         {(()=>{
                             const srcMap={};
                             wires.forEach(w=>{
@@ -926,7 +931,7 @@ function Workspace({
                                 <circle key={i} cx={s.pos.x} cy={s.pos.y} r={4} fill={s.active?wireActiveColor:wireInactiveColor}/>
                             ));
                         })()}
-                        {/* Waypoint markers */}
+                        {}
                         {activeWireWaypoints.map((wp,i)=>(
                             <g key={`wpv-${i}`}>
                                 <circle cx={wp.x} cy={wp.y} r={5} fill="rgba(137,180,250,0.15)" stroke="#89b4fa" strokeWidth="1"/>
@@ -934,7 +939,7 @@ function Workspace({
                             </g>
                         ))}
 
-                        {/* ── Compound pin VISUALS (stub lines, no pointer events) ── */}
+                        {}
                         {compoundPinData.map(({regionId, inputs, outputs})=>(
                             <g key={`cvis-${regionId}`}>
                                 {inputs.map((p,i)=>(
@@ -953,16 +958,15 @@ function Workspace({
                         ))}
                     </svg>
 
-                    {/* ── LED Decimal Converter Display (inside camera layer) ── */}
+                    {}
                     {ledDecimalRegion&&(
                         <LEDDecimalConverterDisplayWrapper
-                            nodes={nodes}
-                            region={(regions||[]).find(r=>r.id===ledDecimalRegion)||null}
+                            hookData={ledDecimalConverterHookData}
                             onTogglePanel={()=>setLedDecimalPanelOpen(!ledDecimalPanelOpen)}
                         />
                     )}
 
-                    {/* ── Nodes (skip hidden compound switches/LEDs) ── */}
+                    {}
                     {nodes.filter(n=>!compoundHiddenIds.has(n.id)).map(node=>(
                         <Node
                             key={node.id}
@@ -984,9 +988,7 @@ function Workspace({
                         />
                     ))}
 
-                    {/* ── Compound pin INTERACTIVE SVG ──────────────────────────────────────
-                         This is a SEPARATE svg from wire-layer so pointer-events work.
-                         It sits on top inside the camera layer.                           ── */}
+                    {}
                     <svg style={{
                         position:"absolute",left:0,top:0,width:"100%",height:"100%",
                         pointerEvents:"none",overflow:"visible",
@@ -994,7 +996,7 @@ function Workspace({
                         {compoundPinData.map(({regionId, inputs, outputs})=>(
                             <g key={`cpin-${regionId}`}>
 
-                                {/* INPUT pins */}
+                                {}
                                 {inputs.map((p,i)=>{
                                     const col = p.isActive ? wireActiveColor : wireInactiveColor;
                                     const receiving = activeWire?.type==="output";
@@ -1002,19 +1004,19 @@ function Workspace({
                                         <g key={`in-${i}`}
                                            style={{pointerEvents:"auto", cursor:"crosshair"}}
                                            onMouseDown={e=>handleCompoundPinClick(e, regionId, i, true)}>
-                                            {/* Highlight ring when a wire is being dragged */}
+                                            {}
                                             {receiving&&<circle cx={p.wx} cy={p.wy} r={PIN_R+5}
                                                 fill="none" stroke="rgba(203,166,247,0.5)" strokeWidth="1.5"/>}
-                                            {/* Pin body */}
+                                            {}
                                             <circle cx={p.wx} cy={p.wy} r={PIN_R}
                                                 fill={receiving?"rgba(203,166,247,0.3)":col}
                                                 stroke="#cba6f7" strokeWidth="2"/>
-                                            {/* Arrow →  (input: wire enters here) */}
+                                            {}
                                             <polygon
                                                 points={`${p.wx-4},${p.wy-3.5} ${p.wx+3.5},${p.wy} ${p.wx-4},${p.wy+3.5}`}
                                                 fill={receiving?"#cba6f7":"rgba(0,0,0,0.6)"}
                                                 style={{pointerEvents:"none"}}/>
-                                            {/* Label */}
+                                            {}
                                             <text x={p.wx-28} y={p.wy+4} fontSize="10" fill="#a6adc8"
                                                 textAnchor="end" fontWeight="600"
                                                 style={{pointerEvents:"none",userSelect:"none"}}>{p.label}</text>
@@ -1022,7 +1024,7 @@ function Workspace({
                                     );
                                 })}
 
-                                {/* OUTPUT pins */}
+                                {}
                                 {outputs.map((p,i)=>{
                                     const col = p.isActive ? wireActiveColor : wireInactiveColor;
                                     const canStart = p.hasSource && !activeWire;
@@ -1030,19 +1032,19 @@ function Workspace({
                                         <g key={`out-${i}`}
                                            style={{pointerEvents:"auto", cursor: canStart?"crosshair":"default"}}
                                            onMouseDown={e=>handleCompoundPinClick(e, regionId, i, false)}>
-                                            {/* Hover hint */}
+                                            {}
                                             {canStart&&<circle cx={p.wx} cy={p.wy} r={PIN_R+5}
                                                 fill="none" stroke="rgba(203,166,247,0.3)" strokeWidth="1"/>}
-                                            {/* Pin body */}
+                                            {}
                                             <circle cx={p.wx} cy={p.wy} r={PIN_R}
                                                 fill={canStart?"rgba(203,166,247,0.2)":col}
                                                 stroke="#cba6f7" strokeWidth="2"/>
-                                            {/* Arrow → (output: wire exits here) */}
+                                            {}
                                             <polygon
                                                 points={`${p.wx-3.5},${p.wy-3.5} ${p.wx+4},${p.wy} ${p.wx-3.5},${p.wy+3.5}`}
                                                 fill={canStart?"#cba6f7":"rgba(0,0,0,0.6)"}
                                                 style={{pointerEvents:"none"}}/>
-                                            {/* Label */}
+                                            {}
                                             <text x={p.wx+28} y={p.wy+4} fontSize="10" fill="#a6adc8"
                                                 textAnchor="start" fontWeight="600"
                                                 style={{pointerEvents:"none",userSelect:"none"}}>{p.label}</text>
@@ -1054,7 +1056,7 @@ function Workspace({
                         ))}
                     </svg>
 
-                </div>{/* end camera layer */}
+                </div>{}
 
                 {selectionBox&&(
                     <div style={{position:"absolute",left:Math.min(selectionBox.startX,selectionBox.endX),top:Math.min(selectionBox.startY,selectionBox.endY),width:Math.abs(selectionBox.endX-selectionBox.startX),height:Math.abs(selectionBox.endY-selectionBox.startY),border:"1px dashed #89b4fa",background:"rgba(137,180,250,0.08)",pointerEvents:"none"}}/>
@@ -1073,7 +1075,7 @@ function Workspace({
                     </div>
                 )}
 
-                {/* ── Node context menu ── */}
+                {}
                 {nodeMenu&&(()=>{
                     const node=nodes.find(n=>n.id===nodeMenu.nodeId);
                     return(
@@ -1127,7 +1129,7 @@ function Workspace({
                     );
                 })()}
 
-                {/* ── Region context menu (right-click the region label) ── */}
+                {}
                 {regionMenu&&(()=>{
                     const region=(regions||[]).find(r=>r.id===regionMenu.regionId);
                     if(!region)return null;

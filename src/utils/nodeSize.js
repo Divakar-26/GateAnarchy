@@ -17,7 +17,7 @@ export function getNodeSize(type, inputCount, outputCount) {
     return { width, height };
 }
 
-// Y coordinate (relative to node top) for pin at index i out of total
+
 export function pinY(index, total, nodeHeight) {
     const spacing = nodeHeight / (total + 1);
     return spacing * (index + 1);

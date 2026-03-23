@@ -7,7 +7,7 @@ export function getPinPosition(node, pin, isOutput) {
     if (isIO) {
         return {
             x: isOutput ? node.x + 28 : node.x,
-            y: node.y + 14,  // center of 28px circle
+            y: node.y + 14,  
         };
     }
  

@@ -132,7 +132,7 @@ function TabBar({ tabs, activeId, onSelect, onAdd, onRename, onClose, onMiddleCl
   );
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
+
 function App() {
   const [tabs, setTabs]         = useState([makePlayground("Playground 1")]);
   const [activeId, setActiveId] = useState(() => tabs[0].id);
@@ -158,11 +158,11 @@ function App() {
 
   const handleCancelPending = () => setPendingTypes([]);
 
-  // ── Save modal state ─────────────────────────────────────────────────────
+  
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName]           = useState("");
   const [saveError, setSaveError]         = useState("");
-  // Pending inputs/outputs chosen by user when saving
+  
   const [saveInputIds, setSaveInputIds]   = useState([]);
   const [saveOutputIds, setSaveOutputIds] = useState([]);
   const saveInputRef = useRef(null);
@@ -262,26 +262,26 @@ function App() {
     e.target.value = "";
   };
 
-  // ── Save circuit — accepts ANY node as input/output ──────────────────────
-  //
-  // Rules:
-  //   Inputs  = SWITCH nodes (controllable sources)
-  //   Outputs = LED nodes (observable sinks)
-  //   Fallback: if no SWITCH, use nodes with no incoming wires as inputs
-  //             if no LED,    use nodes with no outgoing wires as outputs
-  //
+  
+  
+  
+  
+  
+  
+  
+  
   const saveCircuit = () => {
     const switches = nodes.filter(n => n.type === "SWITCH");
     const leds     = nodes.filter(n => n.type === "LED");
 
-    // Derive fallback inputs: nodes nothing drives
+    
     const drivenIds = new Set(wires.map(w => w.to.nodeId));
     const fallbackInputs = nodes.filter(n =>
       n.type !== "LED" && n.type !== "CLOCK" && n.type !== "JUNCTION" &&
       !drivenIds.has(n.id)
     );
 
-    // Derive fallback outputs: nodes that drive nothing
+    
     const drivingIds = new Set(wires.map(w => w.from.nodeId));
     const fallbackOutputs = nodes.filter(n =>
       n.type !== "SWITCH" && n.type !== "CLOCK" && n.type !== "JUNCTION" &&
@@ -369,7 +369,7 @@ function App() {
     setComponentMenu(null);
   };
 
-  // Helper: get label for a node used as input/output in the save modal
+  
   const nodeDisplayName = (id) => {
     const n = nodes.find(x => x.id === id);
     if (!n) return id;
@@ -433,7 +433,7 @@ function App() {
         />
       )}
 
-      {/* ── Save Circuit Modal ── */}
+      {}
       {showSaveModal && (
         <div style={S.overlay}>
           <div style={S.modal} onClick={e => e.stopPropagation()}>
